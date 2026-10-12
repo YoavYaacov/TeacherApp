@@ -41,6 +41,7 @@ const QUICK: { kind: TaskKind | 'ask'; label: string; Icon: typeof Sparkles; hin
 ];
 const EXAMPLES = ['אילו שיעורים עדיין לא תועדו?', 'כמה שיעורים היו החודש?', 'מי השתפר הכי הרבה?', 'מה כדאי להכין לשיעור הבא?'];
 
+let bootUsed = false; // שחזור שיחה פתוחה רק ברענון הדף; לחיצה על "העוזר האישי" תמיד פותחת שיחה חדשה
 export function AssistantPage() {
   const store = useStore();
   const { db, kind } = store;
@@ -49,7 +50,8 @@ export function AssistantPage() {
   const convs = useMemo(() => [...db.ai_conversations].sort((a, b) => b.updated_at.localeCompare(a.updated_at)), [db.ai_conversations]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftCtx, setDraftCtx] = useState<AiContext>({ kind: 'system' });
-  const [text, setText] = useState(() => boot.chatText ?? '');
+  const restore = useRef(!bootUsed && boot.page === 'assistant');
+  const [text, setText] = useState(() => (restore.current ? boot.chatText ?? '' : ''));
   useEffect(() => { saveView({ chatText: text }); }, [text]);
   useEffect(() => { saveView({ convId: activeId }); }, [activeId]);
   const [busy, setBusy] = useState(false);
@@ -74,8 +76,8 @@ export function AssistantPage() {
   // כניסה מכרטיס (תלמיד/קבוצה/שיעור): שיחה חדשה בהקשר הזה
   useEffect(() => {
     if (aiCtx) { setActiveId(null); setDraftCtx(aiCtx); clearAiCtx(); setErr(null); }
-    else if (!activeId && boot.convId && convs.some((c) => c.id === boot.convId)) setActiveId(boot.convId);
-    else if (!activeId && convs[0] && Date.now() - new Date(convs[0].updated_at).getTime() < 6 * 3600000) setActiveId(convs[0].id);
+    else if (restore.current && boot.convId && convs.some((c) => c.id === boot.convId)) setActiveId(boot.convId);
+    bootUsed = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { const el = listRef.current; if (!el) return; const smooth = scrolled.current && document.documentElement.dataset.anim !== 'off'; scrolled.current = true; el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }); }, [messages.length, busy, activeId]);
