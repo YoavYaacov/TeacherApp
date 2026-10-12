@@ -1,6 +1,6 @@
 import { useStore } from '../../data/store';
 import { useNav } from '../nav';
-import { fmtDay, fmtTime } from '../../lib/util';
+import { fmtDay, fmtTime, hebrewDate } from '../../lib/util';
 import { needsDoc } from '../../lib/lessons';
 import { activeStudents, shownEvents } from '../../lib/domain';
 import { Sparkles, X } from 'lucide-react';
@@ -29,7 +29,7 @@ export function HomePage() {
   const dayLabel = (s: string) => { const d = new Date(s); const diff = Math.round((new Date(d.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / 86400000); return diff === 0 ? 'היום' : diff === 1 ? 'מחר' : fmtDay(s); };
   return (
     <>
-      <div className="pagehead"><div><h1>{greet}, יואב <span aria-hidden>{emoji}</span></h1><p className="muted">{now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}</p></div></div>
+      <div className="pagehead"><div><h1>{greet}, יואב <span aria-hidden>{emoji}</span></h1><p className="muted">{now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })} · {hebrewDate(now)}</p></div></div>
       <div className="stats" aria-label="סיכום">
         <div className="stat"><strong>{activeCount}</strong><span>תלמידים פעילים</span></div>
         <div className="stat"><strong>{pending.length}</strong><span>תיעודים ממתינים</span></div>

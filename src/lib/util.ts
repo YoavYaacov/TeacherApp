@@ -53,3 +53,18 @@ export function downloadBytes(name: string, bytes: Uint8Array, mime: string) {
   const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** תאריך עברי בגימטריה, למשל "ב׳ בחשוון תשפ״ז" (מחושב בדפדפן לפי לוח השנה העברי של המערכת; מתחלף בחצות ולא בשקיעה) */
+export function hebrewDate(d: Date): string {
+  const ONES = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'], TENS = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'], HUND = ['', 'ק', 'ר', 'ש', 'ת'];
+  const gem = (n: number): string => {
+    let s = ''; let rest = n;
+    while (rest >= 400) { s += 'ת'; rest -= 400; }
+    s += HUND[Math.floor(rest / 100)] ?? ''; rest %= 100;
+    if (rest === 15) s += 'טו'; else if (rest === 16) s += 'טז'; else { s += TENS[Math.floor(rest / 10)]; s += ONES[rest % 10]; }
+    return s.length > 1 ? `${s.slice(0, -1)}״${s.slice(-1)}` : `${s}׳`;
+  };
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric' }).formatToParts(d).map((p) => [p.type, p.value]));
+  const year = Number(parts.year) % 1000;
+  return `${gem(Number(parts.day))} ב${parts.month} ${gem(year)}`;
+}
