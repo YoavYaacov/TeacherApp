@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Plus, Trash2, XCircle } from 'lucide-react';
+import { Download, Plus, Sparkles, Trash2, XCircle } from 'lucide-react';
+import { useNav } from '../nav';
 import { useStore } from '../../data/store';
 import { Modal } from '../Modal';
 import { createLessons, googleLinked, logOf, needsDoc } from '../../lib/lessons';
@@ -33,7 +34,7 @@ export function AddLessonModal({ groups, groupId, onClose }: { groups: StudyGrou
 }
 
 function LessonCard({ lesson }: { lesson: CalendarEvent }) {
-  const store = useStore();
+  const store = useStore(); const { openAssistant } = useNav();
   const log = logOf(store, lesson.id);
   const [f, setF] = useState({ topic: log?.topic ?? '', learned: log?.learned ?? '', homework: log?.homework ?? '', private_note: log?.private_note ?? '' });
   const timer = useRef<number | undefined>(undefined);
@@ -63,6 +64,7 @@ function LessonCard({ lesson }: { lesson: CalendarEvent }) {
         </span>
       </div>
       {(lesson.status !== 'cancelled' || hasContent) && (<>
+        {lesson.group_id && <button className="linklike" onClick={() => openAssistant({ kind: 'lesson', group_id: lesson.group_id!, event_id: lesson.id })}><Sparkles size={13} aria-hidden /> סכם עם העוזר</button>}
         <div className="form two">{field('topic', 'נושא')}{field('learned', 'מה נלמד')}{field('homework', 'שיעורי בית')}{field('private_note', 'הערה פרטית (לא מוצגת בייצוא)')}</div>
       </>)}
     </div>

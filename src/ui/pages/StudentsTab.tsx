@@ -1,8 +1,9 @@
 import { SortTh, sortRows, useSort } from '../sort';
 import { useMemo, useState } from 'react';
-import { Download, FileUp, Plus, Search, UserMinus, UserPlus, ClipboardPaste, Undo2, ArrowLeftRight } from 'lucide-react';
+import { Download, FileUp, Plus, Search, UserMinus, UserPlus, ClipboardPaste, Undo2, ArrowLeftRight, Sparkles } from 'lucide-react';
 import { useStore, type Store } from '../../data/store';
 import { Modal } from '../Modal';
+import { useNav } from '../nav';
 import { download, hebSort, normalizeClass, parseStudentLine, toCSV, today } from '../../lib/util';
 import { activeStudents, label } from '../../lib/domain';
 import { studentGrades, termConfig, storedFinal } from '../../lib/gradebook';
@@ -90,7 +91,7 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
       </div>
       {modal === 'add' && <AddStudent group={group} onClose={() => setModal(null)} />}
       {modal === 'paste' && <PasteImport group={group} onClose={() => setModal(null)} />}
-      {modal && typeof modal === 'object' && 'card' in modal && <StudentCard student={modal.card} onClose={() => setModal(null)} />}
+      {modal && typeof modal === 'object' && 'card' in modal && <StudentCard student={modal.card} groupId={group.id} onClose={() => setModal(null)} />}
       {modal && typeof modal === 'object' && 'move' in modal && <MoveStudent student={modal.move} from={group} onClose={() => setModal(null)} />}
     </>
   );
@@ -177,11 +178,12 @@ function MoveStudent({ student, from, onClose }: { student: Student; from: Study
   </div></Modal>;
 }
 
-export function StudentCard({ student, onClose }: { student: Student; onClose: () => void }) {
-  const store = useStore();
+export function StudentCard({ student, onClose, groupId }: { student: Student; onClose: () => void; groupId?: string }) {
+  const store = useStore(); const { openAssistant } = useNav();
   const { db } = store;
-  const [last, setLast] = useState(student.last_name); const [first, setFirst] = useState(student.first_name); const [cls, setCls] = useState(student.home_class ?? '');
+  const [last, setLast] = useState(student.last_name); const [first, setFirst] = useState(student.first_name); const [cls, setCls] = useState(student.home_class ?? ''); const [gender, setGender] = useState<'m' | 'f' | ''>(student.gender ?? '');
   const groupIds = [...new Set(db.enrollments.filter((e) => e.student_id === student.id).map((e) => e.group_id))];
+  const evals = db.ai_evaluations.filter((e) => e.student_id === student.id).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   const val = (gid: string, term: 1 | 2) => {
     const cfg = termConfig(db, gid, term);
     const events = db.assessment_events.filter((e) => e.group_id === gid && e.term === term);
@@ -193,8 +195,9 @@ export function StudentCard({ student, onClose }: { student: Student; onClose: (
     <Modal title="כרטיס תלמיד" onClose={onClose}><div className="form">
       <div className="row"><label className="field">משפחה<input className="input" value={last} onChange={(e) => setLast(e.target.value)} /></label>
         <label className="field">פרטי<input className="input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
-        <label className="field">כיתת אם<input className="input" value={cls} onChange={(e) => setCls(e.target.value)} /></label></div>
-      <button className="btn primary" style={{ width: 'fit-content' }} onClick={async () => { await store.patch('students', student.id, { last_name: last.trim(), first_name: first.trim(), home_class: normalizeClass(cls) }); onClose(); }}>שמור פרטים</button>
+        <label className="field">כיתת אם<input className="input" value={cls} onChange={(e) => setCls(e.target.value)} /></label>
+        <label className="field">מגדר (לניסוח הערכות)<select className="input" value={gender} onChange={(e) => setGender(e.target.value as 'm' | 'f' | '')}><option value="">לא צוין</option><option value="m">זכר</option><option value="f">נקבה</option></select></label></div>
+      <button className="btn primary" style={{ width: 'fit-content' }} onClick={async () => { await store.patch('students', student.id, { last_name: last.trim(), first_name: first.trim(), home_class: normalizeClass(cls), gender: gender || null }); onClose(); }}>שמור פרטים</button>
       <h2>ציונים</h2>
       {groupIds.length === 0 ? <p className="muted">אין שיוך לקבוצות</p> :
         <table className="gb"><thead><tr><th>קבוצה</th><th>מחצית א׳</th><th>מחצית ב׳</th><th>שנתי</th></tr></thead><tbody>{groupIds.map((gid) => {
@@ -206,6 +209,8 @@ export function StudentCard({ student, onClose }: { student: Student; onClose: (
           return <tr key={gid}><td>{g.name}</td><td>{show(a)}</td><td>{show(b)}</td><td>{annual ?? '—'}</td></tr>;
         })}</tbody></table>}
       <p className="muted">ירוק = ציון סופי מאושר; אדום = ציון מחושב שטרם אושר.</p>
+      {groupIds.length > 0 && <button className="btn" style={{ width: 'fit-content' }} onClick={() => { onClose(); openAssistant({ kind: 'student', group_id: groupId && groupIds.includes(groupId) ? groupId : groupIds[0], student_id: student.id }); }}><Sparkles size={16} aria-hidden />ניתוח AI</button>}
+      {evals.length > 0 && <><h2>הערכות תעודה שמורות</h2>{evals.map((e) => <div key={e.id} className="ai-card"><strong>{db.study_groups.find((g) => g.id === e.group_id)?.name} · {e.period === 'h1' ? 'מחצית א׳' : e.period === 'h2' ? 'מחצית ב׳' : 'שנתי'}</strong><p dir="auto" style={{ margin: '6px 0' }}>{e.text}</p><button className="btn sm" onClick={() => void navigator.clipboard?.writeText(e.text)}>העתק</button></div>)}</>}
     </div></Modal>
   );
 }

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, GraduationCap, Home, LogOut, Settings as Cog, type LucideIcon } from 'lucide-react';
+import { CalendarDays, GraduationCap, Home, LogOut, Settings as Cog, Sparkles, type LucideIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { gcal, type SyncResult } from '../lib/google';
 import { useStore } from '../data/store';
 import { applyTheme, type ThemeId } from './themes';
 import { NavCtx, type Page } from './nav';
+import type { AiContext } from '../data/types';
+import { AssistantPage } from './pages/AssistantPage';
 import { HomePage } from './pages/HomePage';
 import { GroupsPage } from './pages/GroupsPage';
 import { CalendarPage } from './pages/CalendarPage';
@@ -21,12 +23,11 @@ const BOOT_GOOGLE = (() => {
   } catch { return false; }
 })();
 
-const NAV: { id: Page; label: string; Icon: LucideIcon }[] = [
-  { id: 'home', label: 'בית', Icon: Home },
-  { id: 'groups', label: 'קבוצות לימוד', Icon: GraduationCap },
-  { id: 'calendar', label: 'יומן', Icon: CalendarDays },
-  { id: 'settings', label: 'הגדרות', Icon: Cog },
-];
+const HOME = { id: 'home' as Page, label: 'בית', Icon: Home }, GROUPS = { id: 'groups' as Page, label: 'קבוצות לימוד', Icon: GraduationCap }, CAL = { id: 'calendar' as Page, label: 'יומן', Icon: CalendarDays }, SET = { id: 'settings' as Page, label: 'הגדרות', Icon: Cog };
+const AI = { id: 'assistant' as Page, label: 'עוזר', Icon: Sparkles };
+type NavItem = { id: Page; label: string; Icon: LucideIcon };
+const NAV: NavItem[] = [HOME, { ...AI, label: 'העוזר האישי' }, GROUPS, CAL, SET];       // סרגל צד
+const BOTTOM: NavItem[] = [HOME, GROUPS, AI, CAL, SET];                                   // סרגל תחתון: ✨ במרכז
 
 export function App({ userEmail, signOut }: { userEmail: string | null; signOut: (() => void) | null }) {
   const store = useStore();
@@ -34,7 +35,10 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
   const [page, setPage] = useState<Page>(BOOT_GOOGLE ? 'settings' : 'home');
   const [groupId, setGroupId] = useState<string | null>(null);
   const go = useCallback((p: Page, g: string | null = null) => { setPage(p); setGroupId(g); }, []);
-  const nav = useMemo(() => ({ page, groupId, go }), [page, groupId, go]);
+  const [aiCtx, setAiCtx] = useState<AiContext | null>(null);
+  const openAssistant = useCallback((ctx?: AiContext) => { setAiCtx(ctx ?? null); setPage('assistant'); setGroupId(null); }, []);
+  const clearAiCtx = useCallback(() => setAiCtx(null), []);
+  const nav = useMemo(() => ({ page, groupId, go, openAssistant, aiCtx, clearAiCtx }), [page, groupId, go, openAssistant, aiCtx, clearAiCtx]);
 
   const dbTheme = db.user_settings[0]?.theme as ThemeId | undefined;
   useEffect(() => { if (dbTheme) { applyTheme(dbTheme); try { localStorage.setItem('teacher-app:theme', dbTheme); } catch { /* ignore */ } } }, [dbTheme]);
@@ -98,7 +102,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
             <span><strong>ניהול הוראה</strong><small>מערכת אישית למורה</small></span>
           </div>
           {NAV.map(({ id, label, Icon }) => (
-            <button key={id} className="nav-item" aria-current={page === id ? 'page' : undefined} onClick={() => go(id)}>
+            <button key={id} className="nav-item" aria-current={page === id ? 'page' : undefined} onClick={() => (id === 'assistant' ? openAssistant() : go(id))}>
               <Icon size={20} aria-hidden /> {label}
             </button>
           ))}
@@ -111,21 +115,22 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
             {signOut && <button className="icon-btn" aria-label="התנתק" title="התנתק" onClick={signOut}><LogOut size={18} /></button>}
           </header>
           <main>
-            <div className="page">
+            <div className={`page${page === 'assistant' ? ' chatpage' : ''}`}>
               {newVersion && <div className="note-banner" role="status">יצאה גרסה חדשה של האפליקציה. <button className="btn sm" onClick={() => window.location.reload()}>רענן עכשיו</button></div>}
               {gReauth && page !== 'settings' && <div className="note-banner" role="status">החיבור ל-Google Calendar פג ולכן אירועים חדשים לא מיובאים. <button className="btn sm" onClick={() => { try { sessionStorage.setItem('teacher-app:open', 'calendar'); } catch { /* ignore */ } go('settings'); }}>חבר מחדש</button></div>}
               {error && <div className="issue-banner" role="alert">{error} <button className="btn sm" onClick={store.clearError}>סגור</button></div>}
               {page === 'home' && <HomePage />}
               {page === 'groups' && <GroupsPage />}
               {page === 'calendar' && <CalendarPage />}
+              {page === 'assistant' && <AssistantPage />}
               {page === 'settings' && <SettingsPage userEmail={userEmail} signOut={signOut} />}
             </div>
           </main>
         </div>
         <nav className="bottomnav" aria-label="ניווט תחתון">
-          {NAV.map(({ id, label, Icon }) => (
-            <button key={id} className="nav-item" aria-current={page === id ? 'page' : undefined} onClick={() => go(id)}>
-              <Icon size={22} aria-hidden /> {label}
+          {BOTTOM.map(({ id, label, Icon }) => (
+            <button key={id} className={`nav-item${id === 'assistant' ? ' nav-ai' : ''}`} aria-current={page === id ? 'page' : undefined} onClick={() => (id === 'assistant' ? openAssistant() : go(id))}>
+              <Icon size={id === 'assistant' ? 24 : 22} aria-hidden /> {label}
             </button>
           ))}
         </nav>

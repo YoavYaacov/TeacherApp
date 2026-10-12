@@ -3,11 +3,14 @@ import { useNav } from '../nav';
 import { fmtDay, fmtTime } from '../../lib/util';
 import { needsDoc } from '../../lib/lessons';
 import { activeStudents, shownEvents } from '../../lib/domain';
+import { Sparkles, X } from 'lucide-react';
+import { computeInsights } from '../../ai/insights';
+import { getDismissed } from '../../ai/prefs';
 
 export function HomePage() {
   const store = useStore();
   const { db } = store;
-  const { go } = useNav();
+  const { go, openAssistant } = useNav();
   const now = new Date();
   const hour = now.getHours();
   const greet = hour < 5 ? 'לילה טוב' : hour < 12 ? 'בוקר טוב' : hour < 18 ? 'צהריים טובים' : 'ערב טוב';
@@ -18,10 +21,24 @@ export function HomePage() {
   const shown = shownEvents(db);
   const upcoming = shown.filter((l) => l.status === 'confirmed' && !l.all_day && new Date(l.end_at) >= now && new Date(l.start_at) <= horizon).sort((a, b) => a.start_at.localeCompare(b.start_at));
   const pending = shown.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now, l.group_id)).sort((a, b) => b.start_at.localeCompare(a.start_at));
+  const activeCount = new Set(groups.flatMap((g) => activeStudents(db, g.id).map((x) => x.id))).size;
+  const weekCount = upcoming.length;
+  const dismissed = getDismissed(db);
+  const insights = computeInsights(db, pending, dismissed);
+  const dismiss = (id: string) => { const cur = db.user_settings[0]; store.saveFast('user_settings', [{ id: true, theme: cur?.theme ?? 'sky-blue', prefs: { ...(cur?.prefs ?? {}), aiDismissed: { ...dismissed, [id]: new Date().toISOString() } } }]); };
   const dayLabel = (s: string) => { const d = new Date(s); const diff = Math.round((new Date(d.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / 86400000); return diff === 0 ? 'היום' : diff === 1 ? 'מחר' : fmtDay(s); };
   return (
     <>
       <div className="pagehead"><div><h1>{greet}</h1><p className="muted">{now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}</p></div></div>
+      <div className="stats" aria-label="סיכום">
+        <div className="stat"><strong>{activeCount}</strong><span>תלמידים פעילים</span></div>
+        <div className="stat"><strong>{pending.length}</strong><span>תיעודים ממתינים</span></div>
+        <div className="stat"><strong>{groups.length}</strong><span>קבוצות פעילות</span></div>
+        <div className="stat"><strong>{weekCount}</strong><span>שיעורים בשבוע הקרוב</span></div>
+      </div>
+      {insights.length > 0 && <section className="card insights" aria-label="תובנות"><h2><Sparkles size={16} aria-hidden /> תובנות</h2>
+        <ul className="list">{insights.map((i) => <li key={i.id} className="insight"><span>{i.text}</span>
+          <span className="insight-actions"><button className="linklike" onClick={() => openAssistant(i.ctx)}>פתח בעוזר</button><button className="iconbtn" aria-label="הסתר תובנה" onClick={() => dismiss(i.id)}><X size={14} aria-hidden /></button></span></li>)}</ul></section>}
       <div className="grid">
         <section className="card"><h2>השיעורים הקרובים</h2>
           {upcoming.length === 0 ? <p className="muted">אין שיעורים בשבוע הקרוב</p> :

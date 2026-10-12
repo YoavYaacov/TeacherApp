@@ -53,4 +53,5 @@ export const TABLE_LABEL: Record<string, string> = {
   academic_years: 'שנות לימוד', study_groups: 'קבוצות לימוד', students: 'תלמידים', enrollments: 'שיוכי תלמידים',
   grade_categories: 'קטגוריות ציון', assessment_events: 'אירועי הערכה', grades: 'ציונים', grade_policy_overrides: 'חריגי מועד ב׳',
   final_grades: 'ציונים סופיים', calendar_events: 'שיעורים ואירועי יומן', lesson_logs: 'תיעוד שיעורים', user_settings: 'הגדרות',
+  ai_conversations: 'שיחות עוזר', ai_messages: 'הודעות עוזר', ai_drafts: 'טיוטות עוזר', ai_evaluations: 'הערכות תעודה',
 };

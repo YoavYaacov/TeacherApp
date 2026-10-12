@@ -1,6 +1,7 @@
 import { CONFLICT, emptyDB, TABLES, type DB, type TableName } from './types';
 import type { Repo } from './repo';
 import * as ops from './groupOps';
+import { applyDraftLocal } from './draftOps';
 
 const KEY = 'teacher-app:v1';
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
@@ -43,6 +44,7 @@ export class LocalRepo implements Repo {
   }
   async deleteGroup(id: string) { const r = ops.deleteGroup(this.db, id); this.db = r.db; this.persist(); return r.res; }
   async deleteGroupLessons(id: string) { const r = ops.deleteGroupLessons(this.db, id); this.db = r.db; this.persist(); return r.res; }
+  async applyDraft(id: string, payload: Record<string, unknown> | null, mode: 'fill' | 'append' | 'replace') { this.db = applyDraftLocal(this.db, id, payload, mode); this.persist(); }
   async restoreHiddenEvents() { const r = ops.restoreHidden(this.db); this.db = r.db; this.persist(); return r.n; }
   async replaceAll(db: DB) {
     this.db = { ...emptyDB(), ...Object.fromEntries(TABLES.map((t) => [t, db[t] ?? []])) } as DB;

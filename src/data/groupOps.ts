@@ -40,11 +40,12 @@ export function deleteGroup(db: DB, groupId: string) {
     grade_categories: d1.grade_categories.filter((x) => x.group_id !== groupId),
     enrollments: d1.enrollments.filter((x) => x.group_id !== groupId),
     study_groups: d1.study_groups.filter((x) => x.id !== groupId),
+    ai_evaluations: d1.ai_evaluations.filter((x) => x.group_id !== groupId),
   };
   const keep = (id: string) => d2.enrollments.some((e) => e.student_id === id) || d2.grades.some((x) => x.student_id === id) || d2.final_grades.some((x) => x.student_id === id) || d2.grade_policy_overrides.some((x) => x.student_id === id);
   const gone = [...sids].filter((id) => !keep(id));
   const drop = new Set(gone);
-  return { db: { ...d2, students: d2.students.filter((s) => !drop.has(s.id)) }, res: { events: res, students_deleted: gone.length } };
+  return { db: { ...d2, students: d2.students.filter((s) => !drop.has(s.id)), ai_evaluations: d2.ai_evaluations.filter((x) => !drop.has(x.student_id)) }, res: { events: res, students_deleted: gone.length } };
 }
 
 export function restoreHidden(db: DB) {

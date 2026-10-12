@@ -21,6 +21,7 @@ class Q {
   run() {
     const arr = T(this.t); const match = (r) => this.f.every((f) => f(r));
     if (this.mode === 'select') { const d = arr.filter(match).map((r) => ({ ...r })); return { data: this.single ? d[0] ?? null : d, error: null }; }
+    if (this.mode === 'insert' && this.t === 'ai_requests' && arr.some((r) => r.request_id === this.rows[0].request_id)) return { data: null, error: { message: 'duplicate key' } };
     if (this.mode === 'insert') { this.rows.forEach((r) => arr.push({ id: `id${++seq}`, local_dirty: false, ...r })); return { data: null, error: null }; }
     if (this.mode === 'upsert') {
       for (const r of this.rows) { const i = arr.findIndex((x) => this.keys.every((k) => x[k] === r[k] && r[k] !== undefined)); if (i >= 0) arr[i] = { ...arr[i], ...r }; else arr.push({ id: `id${++seq}`, local_dirty: false, ...r }); }

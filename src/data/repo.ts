@@ -11,6 +11,8 @@ export interface Repo {
   deleteGroup(groupId: string): Promise<{ events: { deleted: number; hidden: number }; students_deleted: number }>;
   deleteGroupLessons(groupId: string): Promise<{ deleted: number; hidden: number }>;
   restoreHiddenEvents(): Promise<number>;
+  /** ביצוע טיוטת AI שאושרה (הנתיב היחיד שבו ה-AI משנה נתוני מערכת). */
+  applyDraft(draftId: string, payload: Record<string, unknown> | null, mode: 'fill' | 'append' | 'replace'): Promise<void>;
   /** החלפת כל הנתונים (שחזור מגיבוי) — מקומי בלבד */
   replaceAll?(db: DB): Promise<void>;
 }

@@ -12,7 +12,11 @@ export class SupabaseRepo implements Repo {
       const all: unknown[] = [];
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await this.sb.from(t).select('*').range(from, from + PAGE - 1);
-        if (error) throw new Error(`${t}: ${error.message}`);
+        if (error) {
+          // טבלאות העוזר (0005) אופציונליות עד שהמיגרציה הורצה: האפליקציה ממשיכה לעבוד בלעדיהן
+          if (t.startsWith('ai_') && /does not exist|schema cache|PGRST205|42P01/i.test(`${error.code ?? ''} ${error.message}`)) break;
+          throw new Error(`${t}: ${error.message}`);
+        }
         all.push(...(data ?? []));
         if (!data || data.length < PAGE) break;
       }
@@ -43,5 +47,6 @@ export class SupabaseRepo implements Repo {
   }
   deleteGroup(id: string) { return this.rpc<{ events: { deleted: number; hidden: number }; students_deleted: number }>('delete_study_group', { p_group: id }); }
   deleteGroupLessons(id: string) { return this.rpc<{ deleted: number; hidden: number }>('delete_group_lessons', { p_group: id }); }
+  async applyDraft(id: string, payload: Record<string, unknown> | null, mode: 'fill' | 'append' | 'replace') { await this.rpc('ai_apply_draft', { p_draft: id, p_payload: payload, p_mode: mode }); }
   restoreHiddenEvents() { return this.rpc<number>('restore_hidden_events'); }
 }

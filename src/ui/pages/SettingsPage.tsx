@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, Database, Palette, SlidersHorizontal, UserCog, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Database, Palette, SlidersHorizontal, Sparkles, UserCog, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { THEMES, applyTheme, type ThemeId } from '../themes';
 import { defaultYear } from '../../lib/domain';
@@ -7,11 +7,13 @@ import { fmtDate } from '../../lib/util';
 import type { AcademicYear } from '../../data/types';
 import { BackupPanel } from './BackupPanel';
 import { CalendarSettings } from './CalendarSettings';
+import { AiSettings } from './AiSettings';
 
 const CATS: { id: string; label: string; Icon: LucideIcon }[] = [
   { id: 'general', label: 'כללי', Icon: SlidersHorizontal },
   { id: 'appearance', label: 'מראה ועיצוב', Icon: Palette },
   { id: 'calendar', label: 'יומן וסנכרון', Icon: CalendarDays },
+  { id: 'assistant', label: 'העוזר האישי', Icon: Sparkles },
   { id: 'backup', label: 'גיבויים ונתונים', Icon: Database },
   { id: 'account', label: 'חשבון ואבטחה', Icon: UserCog },
 ];
@@ -28,6 +30,7 @@ export function SettingsPage({ userEmail, signOut }: { userEmail: string | null;
           {cat === 'general' && <General />}
           {cat === 'appearance' && <Appearance />}
           {cat === 'calendar' && <CalendarSettings />}
+          {cat === 'assistant' && <AiSettings />}
           {cat === 'backup' && <BackupPanel />}
           {cat === 'account' && <><h2>חשבון ואבטחה</h2>
             {userEmail ? <><p>מחובר כ-{userEmail}. הגישה לנתונים מוגבלת לחשבון זה בלבד (RLS בצד השרת).</p>{signOut && <button className="btn" onClick={signOut}>התנתק</button>}</>

@@ -15,7 +15,7 @@ const post = (b) => handler(new Request('https://x/f', { method: 'POST', headers
 let fails = 0; const ok = (c, m) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) fails++; };
 tables.google_credentials = [{ id: true, refresh_token: 'rt' }];
 tables.calendar_sync_state = [{ google_calendar_id: 'cal1', calendar_name: 'הוראה', time_zone: 'Asia/Jerusalem', sync_token: null, full_synced_at: null }];
-tables.study_groups = [{ id: 'g1', name: 'יא 3', archived_at: null }];
+tables.study_groups = [{ id: 'g1', name: 'יא 3', archived_at: null }, { id: 'g2', name: 'ח 1', archived_at: null }];
 tables.user_settings = [{ id: true, prefs: { titleRules: { 'מתמטיקה ח1': 'g2' } } }];
 events = [
   { id: 'e1', summary: 'יא 3', etag: 'a', start: { dateTime: '2026-10-13T08:00:00+03:00' }, end: { dateTime: '2026-10-13T08:45:00+03:00' } },
