@@ -50,7 +50,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
   useEffect(() => { if (dbAnim) applyAnim(dbAnim); }, [dbAnim]);
   const sideRef = useRef<HTMLElement>(null), bottomRef = useRef<HTMLElement>(null);
   useNavSlider(sideRef, ready ? page : '', false);
-  useNavSlider(bottomRef, ready ? page : '', page === 'assistant');
+  useNavSlider(bottomRef, ready ? page : '', false);
   const dbTheme = db.user_settings[0]?.theme as ThemeId | undefined;
   useEffect(() => { if (dbTheme) { applyTheme(dbTheme); try { localStorage.setItem('teacher-app:theme', dbTheme); } catch { /* ignore */ } } }, [dbTheme]);
 
