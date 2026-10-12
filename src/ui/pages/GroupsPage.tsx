@@ -85,13 +85,15 @@ function GroupForm({ group, onClose, onSaved }: { group?: StudyGroup; onClose: (
 }
 
 type GroupTab = 'lessons' | 'students' | 'grades';
+let keepTab: GroupTab | null = null; // מעבר בין קבוצות שומר את הלשונית הנוכחית; כניסה מהרשימה תמיד לשיעורים
 function GroupPage({ id }: { id: string }) {
   const store = useStore();
   const { go } = useNav();
   const group = store.db.study_groups.find((g) => g.id === id);
-  const [tab, setTab] = useState<GroupTab>('lessons'); // ברירת מחדל בכל כניסה: שיעורים
+  const [tab, setTab] = useState<GroupTab>(() => { const t = keepTab ?? 'lessons'; keepTab = null; return t; }); // ברירת מחדל בכניסה: שיעורים
   const [editing, setEditing] = useState(false);
   if (!group) return <p>הקבוצה לא נמצאה. <button className="btn sm" onClick={() => go('groups')}>חזרה</button></p>;
+  const others = store.db.study_groups.filter((g) => !g.archived_at && g.id !== id).sort((a, b) => a.name.localeCompare(b.name, 'he'));
   // סדר DOM: שיעורים, תלמידים, ציונים => ב-RTL שיעורים בימין, ציונים בשמאל
   const tabs: { id: GroupTab; label: string; Icon: LucideIcon }[] = [
     { id: 'lessons', label: 'שיעורים', Icon: BookOpen },
@@ -103,6 +105,8 @@ function GroupPage({ id }: { id: string }) {
       <div className="pagehead">
         <div><button className="linklike back" onClick={() => go('groups')}>← קבוצות לימוד</button>
           <h1>{group.name} {group.archived_at && <span className="badge">בארכיון</span>}</h1></div>
+        {others.length > 0 && <select className="input" aria-label="מעבר לקבוצה אחרת" value="" onChange={(e) => { if (e.target.value) { keepTab = tab; go('groups', e.target.value); } }}>
+          <option value="">מעבר לקבוצה…</option>{others.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
         <button className="btn" onClick={() => setEditing(true)}><Pencil size={16} aria-hidden />עריכה</button>
       </div>
       <div className="tabs" role="tablist" aria-label="לשוניות קבוצה">

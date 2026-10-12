@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Download, Plus, Trash2, XCircle } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { Modal } from '../Modal';
-import { createLessons, googleLinked, logOf } from '../../lib/lessons';
+import { createLessons, googleLinked, logOf, needsDoc } from '../../lib/lessons';
 import { download, fmtDay, fmtDate, fmtTime, iso, toCSV } from '../../lib/util';
 import type { CalendarEvent, LessonLog, StudyGroup } from '../../data/types';
 
@@ -76,9 +76,11 @@ export function LessonsTab({ group }: { group: StudyGroup }) {
   const [manage, setManage] = useState<CalendarEvent | null>(null);
   const now = new Date();
   const mine = store.db.calendar_events.filter((l) => l.group_id === group.id).sort((a, b) => a.start_at.localeCompare(b.start_at));
-  const future = mine.filter((l) => new Date(l.end_at) >= now && l.status === 'confirmed');
-  const past = mine.filter((l) => new Date(l.end_at) < now).reverse();
-  const shown = showAll ? past : past.slice(0, 3);
+  // שיעור שהתחיל כבר ניתן לתיעוד; שיעורים שממתינים לתיעוד תמיד מוצגים, גם אם הם ישנים
+  const future = mine.filter((l) => new Date(l.start_at) > now && l.status === 'confirmed');
+  const past = mine.filter((l) => new Date(l.start_at) <= now && (!l.all_day || l.status === 'confirmed')).reverse();
+  const pendingIds = new Set(past.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now, l.group_id)).map((l) => l.id));
+  const shown = showAll ? past : past.filter((l, i) => i < 3 || pendingIds.has(l.id));
   const exportCsv = () => download(`שיעורים-${group.name}.csv`, toCSV([
     ['תאריך', 'שעה', 'נושא', 'מה נלמד', 'שיעורי בית', 'סטטוס'],
     ...mine.filter((l) => l.status === 'confirmed').map((l) => { const g = logOf(store, l.id); return [fmtDate(l.start_at), fmtTime(l.start_at), g?.topic, g?.learned, g?.homework, g?.completion ?? 'pending']; }),
@@ -99,7 +101,8 @@ export function LessonsTab({ group }: { group: StudyGroup }) {
         <section className="card span2"><h2>שיעורים קודמים ותיעוד</h2>
           {past.length === 0 && <p className="muted">עדיין אין שיעורים קודמים</p>}
           {shown.map((l) => <LessonCard key={l.id} lesson={l} />)}
-          {past.length > 3 && <button className="btn sm" onClick={() => setShowAll(!showAll)}>{showAll ? 'הצג פחות' : `הצג את כל ${past.length} השיעורים`}</button>}
+          {past.length > shown.length && !showAll && <button className="btn sm" onClick={() => setShowAll(true)}>הצג את כל {past.length} השיעורים</button>}
+          {showAll && past.length > 3 && <button className="btn sm" onClick={() => setShowAll(false)}>הצג פחות</button>}
         </section>
       </div>
       {adding && <AddLessonModal groups={[group]} groupId={group.id} onClose={() => setAdding(false)} />}

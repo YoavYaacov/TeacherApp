@@ -74,7 +74,7 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
       </div>
       <div className="card flush">
         {rows.length === 0 ? <p className="muted pad">{archive ? 'אין תלמידים בארכיון' : 'אין תלמידים. הוסף תלמיד או הדבק רשימה.'}</p> :
-          <table className="dt"><thead><tr><SortTh k="name" sort={sort}>שם</SortTh><SortTh k="class" sort={sort}>כיתת אם</SortTh><SortTh k="date" sort={sort}>{archive ? 'נגרע בתאריך' : 'הצטרף'}</SortTh><th /></tr></thead>
+          <table className="dt students"><thead><tr><SortTh k="name" sort={sort}>שם</SortTh><SortTh k="class" sort={sort}>כיתת אם</SortTh><SortTh k="date" sort={sort}>{archive ? 'נגרע בתאריך' : 'הצטרף'}</SortTh><th /></tr></thead>
             <tbody>{sorted.map(({ e, s }) => (
               <tr key={e.id}>
                 <td><button className="linklike plain" onClick={() => setModal({ card: s })}>{label(s)}</button></td>
@@ -177,7 +177,7 @@ function MoveStudent({ student, from, onClose }: { student: Student; from: Study
   </div></Modal>;
 }
 
-function StudentCard({ student, onClose }: { student: Student; onClose: () => void }) {
+export function StudentCard({ student, onClose }: { student: Student; onClose: () => void }) {
   const store = useStore();
   const { db } = store;
   const [last, setLast] = useState(student.last_name); const [first, setFirst] = useState(student.first_name); const [cls, setCls] = useState(student.home_class ?? '');

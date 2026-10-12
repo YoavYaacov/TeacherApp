@@ -47,10 +47,23 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
 
   // ייבוא אוטומטי מ-Google Calendar: בפתיחה, כשחוזרים ללשונית, ובמרווח של 15 דקות כשהאפליקציה פתוחה.
   // לכל היותר פעם ב-5 דקות; נעצר לאחר "אין יומן"/"נדרש חיבור מחדש". כשל שקט.
+  // גרסה חדשה של האפליקציה: בדיקה מול version.json (ללא מטמון) בכניסה, בחזרה ללשונית וכל 30 דקות.
+  const [newVersion, setNewVersion] = useState(false);
+  useEffect(() => {
+    const check = async () => {
+      try { const r = await fetch(`./version.json?t=${Date.now()}`, { cache: 'no-store' }); if (!r.ok) return; const j = await r.json() as { v?: string }; if (j.v && j.v !== __BUILD_ID__) setNewVersion(true); } catch { /* מצב מקומי/ללא רשת */ }
+    };
+    void check();
+    const iv = window.setInterval(() => void check(), 1800000);
+    const vis = () => { if (!document.hidden) void check(); };
+    document.addEventListener('visibilitychange', vis);
+    return () => { window.clearInterval(iv); document.removeEventListener('visibilitychange', vis); };
+  }, []);
   const [gReauth, setGReauth] = useState(false);
   const gStop = useRef(false);
   const gBusy = useRef(false);
   const reloadRef = useRef(store.reload); reloadRef.current = store.reload;
+  const savingRef = useRef(0); savingRef.current = saving;
   useEffect(() => {
     if (!ready || kind !== 'supabase' || !supabase) return;
     const run = async () => {
@@ -61,7 +74,11 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
         const r = await gcal<SyncResult>('sync');
         if (r.error === 'no_calendar' || r.error === 'not_deployed' || r.error === 'forbidden') gStop.current = true;
         else if (r.error === 'reauth_required') { gStop.current = true; setGReauth(true); }
-        else if (r.ok && ((r.created ?? 0) + (r.updated ?? 0) + (r.cancelled ?? 0)) > 0) await reloadRef.current();
+        else if (r.ok && ((r.created ?? 0) + (r.updated ?? 0) + (r.cancelled ?? 0)) > 0) {
+          // לא טוענים מחדש בזמן שיש שמירות בהמשך, כדי לא להציג מצב ישן מעל עריכה שעוד לא נשמרה
+          for (let i = 0; i < 40 && savingRef.current > 0; i++) await new Promise((res) => setTimeout(res, 250));
+          await reloadRef.current();
+        }
       } catch { /* שקט */ } finally { gBusy.current = false; }
     };
     void run();
@@ -95,6 +112,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
           </header>
           <main>
             <div className="page">
+              {newVersion && <div className="note-banner" role="status">יצאה גרסה חדשה של האפליקציה. <button className="btn sm" onClick={() => window.location.reload()}>רענן עכשיו</button></div>}
               {gReauth && page !== 'settings' && <div className="note-banner" role="status">החיבור ל-Google Calendar פג ולכן אירועים חדשים לא מיובאים. <button className="btn sm" onClick={() => { try { sessionStorage.setItem('teacher-app:open', 'calendar'); } catch { /* ignore */ } go('settings'); }}>חבר מחדש</button></div>}
               {error && <div className="issue-banner" role="alert">{error} <button className="btn sm" onClick={store.clearError}>סגור</button></div>}
               {page === 'home' && <HomePage />}

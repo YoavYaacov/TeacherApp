@@ -40,6 +40,17 @@ ok(r.ok && r.created === 0 && r.updated === 4 && !r.full, 'סנכרון שני �
 ok(tables.calendar_events.length === 4, 'אין כפילויות');
 ok(tables.calendar_events.find((e) => e.google_event_id === 'e2').group_id === 'g1', 'שיוך ידני לא נדרס');
 ok(tables.calendar_events.find((e) => e.google_event_id === 'e1').title === 'יא 3 (שונה)', 'שינוי כותרת ב-Google התעדכן');
+// שינוי שעה (גם באירוע חוזר: אותו מזהה מופע, זמן חדש): השיוך נשמר
+tables.calendar_events.find((e) => e.google_event_id === 'e4').group_id = 'g1';
+events = [{ id: 'e4', recurringEventId: 'r1', summary: 'מתמטיקה ח1', start: { dateTime: '2026-10-15T11:00:00+03:00' }, end: { dateTime: '2026-10-15T11:45:00+03:00' } }];
+r = await post({ action: 'sync' });
+const e4 = tables.calendar_events.find((e) => e.google_event_id === 'e4');
+ok(e4.start_at === '2026-10-15T08:00:00.000Z' && e4.group_id === 'g1' && tables.calendar_events.filter((e) => e.google_event_id === 'e4').length === 1, 'שינוי שעה באירוע חוזר: עודכן, שיוך נשמר, בלי כפילות');
+// תיעוד נשמר ליד אירוע שעודכן
+tables.lesson_logs = [{ calendar_event_id: e4.id, topic: 'x' }];
+events = [{ id: 'e4', recurringEventId: 'r1', summary: 'מתמטיקה ח1', start: { dateTime: '2026-10-15T12:00:00+03:00' }, end: { dateTime: '2026-10-15T12:45:00+03:00' } }];
+await post({ action: 'sync' });
+ok(tables.calendar_events.find((e) => e.google_event_id === 'e4').id === e4.id && tables.lesson_logs.length === 1, 'מזהה הרשומה (ולכן התיעוד) לא משתנה בעדכון');
 // ביטול ב-Google
 events = [{ id: 'e1', status: 'cancelled' }, { id: 'zz', status: 'cancelled' }];
 r = await post({ action: 'sync' });

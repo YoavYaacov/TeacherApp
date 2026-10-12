@@ -171,3 +171,13 @@ table.gb { border-collapse: separate; border-spacing: 0; width: max-content; min
 .gb input.g-star, .gb td.calc.star { color: var(--star-text); font-weight: 700; }
 .final.ok.fail { background: var(--bad-bg); } .final.ok.fail input { color: var(--bad-ink); }
 .final.ok.star { background: var(--star-bg); } .final.ok.star input { color: var(--star-ink); }
+
+/* שורה לחיצה בכרטיסי דף הבית: כל השורה פותחת */
+.rowbtn { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 12px; background: none; border: 0; padding: 0; cursor: pointer; text-align: start; color: var(--ink); }
+.rowbtn:hover span:first-child { color: var(--accent-text); } .rowbtn:disabled { cursor: default; } .rowbtn:disabled:hover span:first-child { color: inherit; }
+
+@media (max-width: 860px) {
+  .dt th, .dt td { padding: 12px 10px; }
+  .dt.students th:nth-child(3), .dt.students td:nth-child(3) { display: none; } /* תאריך הצטרפות: פחות חשוב במסך צר */
+  .dt td.actions { padding-inline-end: 8px; }
+}

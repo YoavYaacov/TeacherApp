@@ -3,7 +3,6 @@ import { useNav } from '../nav';
 import { fmtDay, fmtTime } from '../../lib/util';
 import { needsDoc } from '../../lib/lessons';
 import { activeStudents } from '../../lib/domain';
-import { lastFileBackup } from './BackupPanel';
 
 export function HomePage() {
   const store = useStore();
@@ -13,46 +12,36 @@ export function HomePage() {
   const hour = now.getHours();
   const greet = hour < 5 ? 'לילה טוב' : hour < 12 ? 'בוקר טוב' : hour < 18 ? 'צהריים טובים' : 'ערב טוב';
   const groupName = (id: string | null, title?: string) => db.study_groups.find((g) => g.id === id)?.name ?? title ?? 'שיעור';
-  const todays = db.calendar_events.filter((l) => l.status === 'confirmed' && new Date(l.start_at).toDateString() === now.toDateString()).sort((a, b) => a.start_at.localeCompare(b.start_at));
-  const pending = db.calendar_events.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now, l.group_id)).sort((a, b) => b.start_at.localeCompare(a.start_at));
   const groups = db.study_groups.filter((g) => !g.archived_at);
-  const studentCount = new Set(groups.flatMap((g) => activeStudents(db, g.id).map((s) => s.id))).size;
-  const lastBk = lastFileBackup(db);
-  const hasData = db.students.length + db.study_groups.length > 0;
-  const bkDays = lastBk ? Math.floor((now.getTime() - new Date(lastBk).getTime()) / 86400000) : null;
-  const needBackup = hasData && (bkDays === null || bkDays >= 7);
-  const stats = [
-    { n: todays.length, l: 'שיעורים היום' },
-    { n: pending.length, l: 'תיעודים ממתינים' },
-    { n: groups.length, l: 'קבוצות פעילות' },
-    { n: studentCount, l: 'תלמידים פעילים' },
-  ];
+  // שיעורים קרובים: מה שמתרחש עכשיו ועד שבוע קדימה
+  const horizon = new Date(now); horizon.setDate(horizon.getDate() + 7);
+  const upcoming = db.calendar_events.filter((l) => l.status === 'confirmed' && !l.all_day && new Date(l.end_at) >= now && new Date(l.start_at) <= horizon).sort((a, b) => a.start_at.localeCompare(b.start_at));
+  const pending = db.calendar_events.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now, l.group_id)).sort((a, b) => b.start_at.localeCompare(a.start_at));
+  const dayLabel = (s: string) => { const d = new Date(s); const diff = Math.round((new Date(d.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / 86400000); return diff === 0 ? 'היום' : diff === 1 ? 'מחר' : fmtDay(s); };
   return (
     <>
       <div className="pagehead"><div><h1>{greet}</h1><p className="muted">{now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}</p></div></div>
-      {needBackup && <div className="note-banner" role="note">{bkDays === null ? 'עדיין לא הורדת גיבוי לקובץ.' : `הגיבוי האחרון לקובץ היה לפני ${bkDays} ימים.`} מומלץ להוריד אחד: הגדרות &gt; גיבויים ונתונים. <button className="btn sm" onClick={() => go('settings')}>להגדרות</button></div>}
-      <div className="stats">{stats.map((s) => <div key={s.l} className="stat"><strong>{s.n}</strong><span>{s.l}</span></div>)}</div>
       <div className="grid">
-        <section className="card"><h2>שיעורי היום</h2>
-          {todays.length === 0 ? <p className="muted">אין שיעורים היום</p> :
-            <ul className="list">{todays.map((l) => (
-              <li key={l.id}><span>{groupName(l.group_id, l.title)}</span>
-                <span className="row"><span className="muted">{fmtTime(l.start_at)}–{fmtTime(l.end_at)}</span>
-                  {l.group_id && <button className="btn sm" onClick={() => go('groups', l.group_id)}>פתח</button>}</span></li>))}</ul>}
+        <section className="card"><h2>השיעורים הקרובים</h2>
+          {upcoming.length === 0 ? <p className="muted">אין שיעורים בשבוע הקרוב</p> :
+            <ul className="list">{upcoming.slice(0, 8).map((l) => (
+              <li key={l.id}><button className="rowbtn" disabled={!l.group_id} onClick={() => go('groups', l.group_id)}>
+                <span>{groupName(l.group_id, l.title)}</span>
+                <span className="muted">{dayLabel(l.start_at)} · {fmtTime(l.start_at)}–{fmtTime(l.end_at)}</span></button></li>))}</ul>}
+          {upcoming.length > 8 && <p className="muted"><button className="linklike" onClick={() => go('calendar')}>לכל השיעורים ביומן</button></p>}
         </section>
-        <section className="card"><h2>תיעודים ממתינים</h2>
+        <section className="card"><h2>תיעודים ממתינים{pending.length > 0 && <span className="muted"> · {pending.length}</span>}</h2>
           {pending.length === 0 ? <p className="muted">הכול מתועד</p> :
             <ul className="list">{pending.slice(0, 6).map((l) => (
-              <li key={l.id}><span>{groupName(l.group_id, l.title)} <span className="muted">· {fmtDay(l.start_at)}</span></span>
-                <button className="btn sm" onClick={() => go('groups', l.group_id)}>תעד</button></li>))}</ul>}
-          {pending.length > 6 && <p className="muted">ועוד {pending.length - 6}…</p>}
+              <li key={l.id}><button className="rowbtn" onClick={() => go('groups', l.group_id)}>
+                <span>{groupName(l.group_id, l.title)}</span><span className="muted">{fmtDay(l.start_at)}</span></button></li>))}</ul>}
+          {pending.length > 6 && <p className="muted">ועוד {pending.length - 6}. כולם מופיעים בלשונית השיעורים של הקבוצה.</p>}
         </section>
         <section className="card"><h2>קבוצות</h2>
-          {groups.length === 0 ? <p className="muted">עדיין אין קבוצות.</p> :
+          {groups.length === 0 ? <><p className="muted">עדיין אין קבוצות.</p><button className="btn primary" onClick={() => go('groups')}>יצירת קבוצה</button></> :
             <ul className="list">{groups.map((g) => (
-              <li key={g.id}><span>{g.name} <span className="muted">· {activeStudents(db, g.id).length} תלמידים</span></span>
-                <button className="btn sm" onClick={() => go('groups', g.id)}>פתח</button></li>))}</ul>}
-          {groups.length === 0 && <button className="btn primary" onClick={() => go('groups')}>יצירת קבוצה</button>}
+              <li key={g.id}><button className="rowbtn" onClick={() => go('groups', g.id)}>
+                <span>{g.name}</span><span className="muted">{activeStudents(db, g.id).length} תלמידים</span></button></li>))}</ul>}
         </section>
       </div>
     </>

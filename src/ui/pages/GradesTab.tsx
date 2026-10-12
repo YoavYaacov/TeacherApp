@@ -1,4 +1,5 @@
 import { exportXlsx } from '../../lib/export';
+import { StudentCard } from './StudentsTab';
 import { SortTh, sortRows, useSort } from '../sort';
 import { useMemo, useState } from 'react';
 import { CheckCheck, Download, FileSpreadsheet, Settings2 } from 'lucide-react';
@@ -43,6 +44,7 @@ function TermGrid({ group, term }: { group: StudyGroup; term: 1 | 2 }) {
   const [config, setConfig] = useState(false);
   const [focusEvent, setFocusEvent] = useState<string | null>(null);
   const [ovr, setOvr] = useState<{ sid: string; eid: string } | null>(null);
+  const [card, setCard] = useState<Student | null>(null);
   const sort = useSort<'name' | 'class' | 'avg' | 'final'>('name', { avg: 'desc', final: 'desc' });
   const cfg = useMemo(() => termConfig(db, group.id, term), [db, group.id, term]);
   const issues = validateTermConfig(cfg);
@@ -99,7 +101,7 @@ function TermGrid({ group, term }: { group: StudyGroup; term: 1 | 2 }) {
       {issues.map((i, k) => <p key={k} className="issue" role="alert">{i.message}</p>)}
       {cfg.categories.length === 0 && <div className="card"><p>עדיין לא הוגדרו קטגוריות הערכה למחצית הזו. פתח ״הגדרות הערכה״ כדי להגדיר קטגוריות (מבחנים, בוחנים…) ואירועי הערכה.</p></div>}
       {cfg.categories.length > 0 && <>
-        <p className="muted">הזנה: מספר 0–100, ״פ״ = פטור, ״ל״ = לא נבחן, ריק = לא הוזן. אפשר להדביק טווח מ-Excel. לחיצה על שם אירוע: הזנה מרוכזת, מועד ב׳ ומדיניות. ציון מתחת ל-56 באדום, מ-90 ומעלה בירוק בוהק. רקע אדום בממוצע = חישוב חלקי. רקע ירוק בסופי = ציון מאושר.</p>
+        <p className="muted">מספר 0–100, פ = פטור, ל = לא נבחן. אפשר להדביק מ-Excel. לחיצה על שם אירוע פותחת הזנה מרוכזת ומועד ב׳. רקע אדום בממוצע = חישוב חלקי; ירוק בסופי = מאושר.</p>
         <div className="gridwrap card flush"><table className="gb" onPaste={onPaste}>
           <thead><tr><SortTh k="name" sort={sort} className="name">תלמיד</SortTh><SortTh k="class" sort={sort}>כיתה</SortTh>
             {eventRows.map((x) => (
@@ -109,7 +111,7 @@ function TermGrid({ group, term }: { group: StudyGroup; term: 1 | 2 }) {
           <tbody>{results.map(({ s, g, r, fin }, ri) => {
             const dropped = new Set(r.categories.map((c) => c.droppedEventId));
             return (
-              <tr key={s.id}><td className="name">{label(s)}</td><td className="muted">{s.home_class ?? '—'}</td>
+              <tr key={s.id}><td className="name"><button className="linklike plain" title="כרטיס תלמיד" onClick={() => setCard(s)}>{label(s)}</button></td><td className="muted">{s.home_class ?? '—'}</td>
                 {eventRows.map((x, ci) => {
                   const gb = g[x.e.id];
                   const bothScores = gb.a.kind === 'score' && gb.b?.kind === 'score';
@@ -131,6 +133,7 @@ function TermGrid({ group, term }: { group: StudyGroup; term: 1 | 2 }) {
                   canApprove={r.calculated !== null && (fin.value === null || fin.stale)} /></td></tr>);
           })}</tbody>
         </table></div></>}
+      {card && <StudentCard student={card} onClose={() => setCard(null)} />}
       {ovr && (() => {
         const st = students.find((q) => q.id === ovr.sid)!; const er = eventRows.find((q) => q.e.id === ovr.eid)!;
         const o = db.grade_policy_overrides.find((q) => q.event_id === ovr.eid && q.student_id === ovr.sid);
@@ -154,6 +157,7 @@ function AnnualGrid({ group }: { group: StudyGroup }) {
   const { db } = store;
   const w1 = Number(group.annual_weight_h1), w2 = Number(group.annual_weight_h2);
   const students = activeStudents(db, group.id).sort((a: Student, b: Student) => hebSort(label(a), label(b)));
+  const [card, setCard] = useState<Student | null>(null);
   const sort = useSort<'name' | 'f1' | 'f2' | 'calc' | 'final'>('name', { f1: 'desc', f2: 'desc', calc: 'desc', final: 'desc' });
   const base = students.map((s) => {
     const f1 = storedFinal(db, group.id, s.id, 'h1')?.value ?? null, f2 = storedFinal(db, group.id, s.id, 'h2')?.value ?? null;
@@ -170,11 +174,12 @@ function AnnualGrid({ group }: { group: StudyGroup }) {
       <p className="muted">ציון שנתי מחושב מהציונים הסופיים של שתי המחציות בלבד (משקלים {w1}/{w2}, ניתן לשינוי בעריכת הקבוצה). אם מחצית לא אושרה — אין ציון שנתי מחושב.</p>
       <div className="gridwrap card flush"><table className="gb"><thead><tr><SortTh k="name" sort={sort} className="name">תלמיד</SortTh><SortTh k="f1" sort={sort}>סופי מחצית א׳</SortTh><SortTh k="f2" sort={sort}>סופי מחצית ב׳</SortTh><SortTh k="calc" sort={sort}>שנתי מחושב</SortTh><SortTh k="final" sort={sort}>שנתי סופי</SortTh></tr></thead>
         <tbody>{rows.map(({ s, f1, f2, a, fin }) => (
-          <tr key={s.id}><td className="name">{label(s)}</td><td className={`calc ${gradeTone(f1)}`}>{f1 ?? '—'}</td><td className={`calc ${gradeTone(f2)}`}>{f2 ?? '—'}</td>
+          <tr key={s.id}><td className="name"><button className="linklike plain" title="כרטיס תלמיד" onClick={() => setCard(s)}>{label(s)}</button></td><td className={`calc ${gradeTone(f1)}`}>{f1 ?? '—'}</td><td className={`calc ${gradeTone(f2)}`}>{f2 ?? '—'}</td>
             <td className={`calc ${gradeTone(a.calculatedRounded)}`}>{a.calculatedRounded ?? <span className="muted">חסר: מחצית {a.missingTerms.map((t) => (t === 1 ? 'א׳' : 'ב׳')).join(' + ')}</span>}</td>
             <td><FinalCell label={`שנתי ${label(s)}`} value={fin.value} source={fin.source} stale={fin.stale}
               onSet={(v) => (v === null ? store.delFast('final_grades', { group_id: group.id, student_id: s.id, period: 'annual' }) : store.saveFast('final_grades', [{ group_id: group.id, student_id: s.id, period: 'annual', value: v, source: 'override', basis_calculated: a.calculated }]))}
               onApprove={() => approve(s.id, a.calculated as number)} canApprove={a.calculated !== null && (fin.value === null || fin.stale)} /></td></tr>))}</tbody></table></div>
+      {card && <StudentCard student={card} onClose={() => setCard(null)} />}
     </>
   );
 }

@@ -4,6 +4,16 @@ import type { Repo } from './repo';
 import { uid } from './localRepo';
 
 type Row = Record<string, unknown>;
+/** הודעת שגיאה ברורה למשתמש (בלי פרטי PostgREST/רשת גולמיים). */
+export function friendly(action: string, e: unknown): string {
+  const m = (e as Error)?.message ?? String(e);
+  if (/failed to fetch|networkerror|load failed|network request/i.test(m)) return `${action}: אין חיבור לאינטרנט. השינוי האחרון לא נשמר; בדוק את החיבור ונסה שוב.`;
+  if (/jwt|expired|not authenticated|401/i.test(m)) return `${action}: ההתחברות פגה. רענן את הדף והתחבר מחדש.`;
+  if (/permission denied|row-level security|42501|403/i.test(m)) return `${action}: אין הרשאה לפעולה הזו.`;
+  if (/duplicate key|unique/i.test(m)) return `${action}: הרשומה כבר קיימת.`;
+  if (/violates foreign key|23503/i.test(m)) return `${action}: הרשומה קשורה לנתונים אחרים.`;
+  return `${action}. נסה שוב. אם זה חוזר, פרט טכני: ${m}`;
+}
 function mergeRows(arr: Row[], rows: Row[], table: TableName): Row[] {
   const keys = (CONFLICT[table] ?? 'id').split(',');
   const next = [...arr];
@@ -38,7 +48,7 @@ export function StoreProvider({ repo, children }: { repo: Repo; children: ReactN
   const queue = useRef<Promise<unknown>>(Promise.resolve());
 
   const reload = useCallback(async () => {
-    try { setDb(await repo.load()); setError(null); } catch (e) { setError(`טעינת הנתונים נכשלה: ${(e as Error).message}`); }
+    try { setDb(await repo.load()); setError(null); } catch (e) { setError(friendly('טעינת הנתונים נכשלה', e)); }
     setReady(true);
   }, [repo]);
   useEffect(() => { void reload(); }, [reload]);
@@ -57,32 +67,32 @@ export function StoreProvider({ repo, children }: { repo: Repo; children: ReactN
           const saved = await enqueue(() => repo.upsert(table, rows));
           setDb((d) => ({ ...d, [table]: mergeRows(d[table] as unknown as Row[], saved as unknown as Row[], table) }) as DB);
           return saved;
-        } catch (e) { setError(`השמירה נכשלה: ${(e as Error).message}`); throw e; }
+        } catch (e) { setError(friendly('השמירה נכשלה', e)); throw e; }
       },
       saveFast(table, rows) {
         const withIds = (rows as Row[]).map((r) => ((CONFLICT[table] ?? 'id') === 'id' && !r.id ? { ...r, id: uid() } : r));
         setDb((d) => ({ ...d, [table]: mergeRows(d[table] as unknown as Row[], withIds, table) }) as DB);
-        enqueue(() => repo.upsert(table, withIds as never)).catch((e) => { setError(`השמירה נכשלה: ${(e as Error).message}`); void reload(); });
+        enqueue(() => repo.upsert(table, withIds as never)).catch((e) => { setError(friendly('השמירה נכשלה', e)); void reload(); });
       },
       async patch(table, id, patch) {
         try {
           await enqueue(() => repo.update(table, id, patch));
           setDb((d) => ({ ...d, [table]: (d[table] as unknown as Row[]).map((x) => (x.id === id ? { ...x, ...(patch as Row) } : x)) }) as DB);
-        } catch (e) { setError(`השמירה נכשלה: ${(e as Error).message}`); throw e; }
+        } catch (e) { setError(friendly('השמירה נכשלה', e)); throw e; }
       },
       patchFast(table, id, patch) {
         setDb((d) => ({ ...d, [table]: (d[table] as unknown as Row[]).map((x) => (x.id === id ? { ...x, ...(patch as Row) } : x)) }) as DB);
-        enqueue(() => repo.update(table, id, patch)).catch((e) => { setError(`השמירה נכשלה: ${(e as Error).message}`); void reload(); });
+        enqueue(() => repo.update(table, id, patch)).catch((e) => { setError(friendly('השמירה נכשלה', e)); void reload(); });
       },
       async del(table, match) {
         try {
           await enqueue(() => repo.remove(table, match));
           setDb((d) => ({ ...d, [table]: (d[table] as unknown as Row[]).filter((x) => !Object.entries(match).every(([k, v]) => x[k] === v)) }) as DB);
-        } catch (e) { setError(`המחיקה נכשלה: ${(e as Error).message}`); throw e; }
+        } catch (e) { setError(friendly('המחיקה נכשלה', e)); throw e; }
       },
       delFast(table, match) {
         setDb((d) => ({ ...d, [table]: (d[table] as unknown as Row[]).filter((x) => !Object.entries(match).every(([k, v]) => x[k] === v)) }) as DB);
-        enqueue(() => repo.remove(table, match)).catch((e) => { setError(`המחיקה נכשלה: ${(e as Error).message}`); void reload(); });
+        enqueue(() => repo.remove(table, match)).catch((e) => { setError(friendly('המחיקה נכשלה', e)); void reload(); });
       },
       reload, clearError: () => setError(null),
     };
