@@ -1,0 +1,46 @@
+# הקמה והפעלה
+
+## א. שימוש מיידי (מצב מקומי, בלי הקמה)
+1. פתח את הקובץ `index.html` (מתוך `dist/` או הקובץ הבודד ששלחתי) ב-Chrome/Edge בלחיצה כפולה.
+2. כל הנתונים נשמרים בדפדפן **של המכשיר הזה** (localStorage). אין שרת ואין חשיפה למשתמשים אחרים, אבל גם אין סנכרון בין מכשירים.
+3. **גבה שבועית:** הגדרות > גיבויים ונתונים > גיבוי מלא (JSON). מחיקת נתוני אתר בדפדפן מוחקת את הנתונים. שחזור מקובץ: אותו מסך.
+4. חשוב: פתח תמיד את אותו קובץ באותה כתובת/דפדפן. קובץ במיקום אחר או דפדפן אחר = נתונים נפרדים.
+
+## ב. מעבר לענן (התחברות Google, סנכרון בין מכשירים)
+נדרש: חשבון Supabase עם מקום לפרויקט (מגבלת 2 פרויקטים חינמיים), וחשבון Google שלך.
+
+### 1. פרויקט Supabase
+1. supabase.com > New project (אזור Frankfurt). שמור את סיסמת ה-DB.
+2. SQL Editor > New query: הדבק את כל `supabase/migrations/0001_init.sql` > Run.
+3. הרץ (שנה למייל ה-Google שלך אם שונה):
+```sql
+insert into owner_config(email) values ('yoavyaacov395@gmail.com');
+```
+4. Project Settings > API Keys: העתק `Project URL` ו-publishable (anon) key.
+
+### 2. התחברות
+**מהיר (בלי Google Cloud):** Authentication > Providers: Email מופעל כברירת מחדל. במסך הכניסה יש ״שלח קישור כניסה למייל״. הקישור מגיע למייל; רק המייל המורשה ב-owner_config יראה נתונים (RLS).
+**Google:** console.cloud.google.com > פרויקט חדש > APIs & Services > OAuth consent screen (External, מייל שלך כ-Test user) > Credentials > Create OAuth client ID (Web). Authorized redirect URI: `https://<PROJECT_REF>.supabase.co/auth/v1/callback`. העתק Client ID/Secret ל-Supabase: Authentication > Providers > Google. Authentication > URL Configuration: Site URL = כתובת האתר שלך.
+אחרי הכניסה הראשונה: Authentication > Sign In / Providers > כבה "Allow new users to sign up".
+
+### 3. בנייה ופריסה
+```
+cp .env.example .env.local   # מלא URL ו-key
+npm install && npm run build
+```
+העלה את `dist/index.html` לאירוח סטטי: Netlify Drop (app.netlify.com/drop, גרור את התיקייה `dist`), או Cloudflare Pages / Vercel. הוסף את הכתובת שקיבלת ל-Supabase > Authentication > URL Configuration > Redirect URLs.
+
+### 4. בדיקת אבטחה (חובה לפני נתוני אמת)
+- היכנס עם חשבון Google אחר: צריך לראות "החשבון אינו מורשה".
+- ב-Supabase: Advisors > Security: אין אזהרות על טבלאות ללא RLS.
+
+### 5. העברת נתונים ממצב מקומי לענן
+כרגע אין ייבוא אוטומטי מקובץ הגיבוי לענן (ייבנה אם תצטרך). מומלץ: אם עוברים לענן, עושים זאת לפני שמזינים הרבה נתונים, או שאגדיר לך סקריפט העברה.
+
+## פיתוח
+```
+npm install
+npm run dev
+npm test           # 37 בדיקות למנוע הציונים
+npm run contrast   # ניגודיות ערכות הנושא
+```

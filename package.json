@@ -1,0 +1,31 @@
+{
+  "name": "teacher-manager",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "contrast": "tsx scripts/check-contrast.ts"
+  },
+  "dependencies": {
+    "@fontsource/rubik": "^5.1.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/node": "^26.6.5",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^2.0.5"
+  }
+}
