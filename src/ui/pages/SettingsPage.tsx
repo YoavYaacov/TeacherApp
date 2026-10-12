@@ -6,6 +6,7 @@ import { defaultYear } from '../../lib/domain';
 import { fmtDate } from '../../lib/util';
 import type { AcademicYear } from '../../data/types';
 import { BackupPanel } from './BackupPanel';
+import { CalendarSettings } from './CalendarSettings';
 
 const CATS: { id: string; label: string; Icon: LucideIcon }[] = [
   { id: 'general', label: 'כללי', Icon: SlidersHorizontal },
@@ -16,7 +17,7 @@ const CATS: { id: string; label: string; Icon: LucideIcon }[] = [
 ];
 
 export function SettingsPage({ userEmail, signOut }: { userEmail: string | null; signOut: (() => void) | null }) {
-  const [cat, setCat] = useState('general');
+  const [cat, setCat] = useState(() => { const h = sessionStorage.getItem('teacher-app:open'); sessionStorage.removeItem('teacher-app:open'); return h === 'calendar' ? 'calendar' : 'general'; });
   return (
     <>
       <div className="pagehead"><h1>הגדרות</h1></div>
@@ -26,7 +27,7 @@ export function SettingsPage({ userEmail, signOut }: { userEmail: string | null;
         <section className="card">
           {cat === 'general' && <General />}
           {cat === 'appearance' && <Appearance />}
-          {cat === 'calendar' && <><h2>יומן וסנכרון</h2><p>כרגע השיעורים נשמרים בלוח פנימי. חיבור ל-Google Calendar יתווסף בגרסה הבאה, בלי צורך להזין מחדש שיעורים.</p></>}
+          {cat === 'calendar' && <CalendarSettings />}
           {cat === 'backup' && <BackupPanel />}
           {cat === 'account' && <><h2>חשבון ואבטחה</h2>
             {userEmail ? <><p>מחובר כ-{userEmail}. הגישה לנתונים מוגבלת לחשבון זה בלבד (RLS בצד השרת).</p>{signOut && <button className="btn" onClick={signOut}>התנתק</button>}</>

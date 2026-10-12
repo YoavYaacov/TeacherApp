@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, GraduationCap, Home, LogOut, Settings as Cog, type LucideIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { gcal, type SyncResult } from '../lib/google';
 import { useStore } from '../data/store';
 import { applyTheme, type ThemeId } from './themes';
 import { NavCtx, type Page } from './nav';
@@ -8,6 +9,17 @@ import { HomePage } from './pages/HomePage';
 import { GroupsPage } from './pages/GroupsPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { SettingsPage } from './pages/SettingsPage';
+
+// חזרה מ-Google (OAuth): ?google=<תוצאה> => פתיחת הגדרות > יומן והצגת התוצאה. מחושב פעם אחת בטעינת המודול.
+const BOOT_GOOGLE = (() => {
+  try {
+    const u = new URL(window.location.href); const r = u.searchParams.get('google');
+    if (!r) return false;
+    sessionStorage.setItem('teacher-app:google-note', r); sessionStorage.setItem('teacher-app:open', 'calendar');
+    u.searchParams.delete('google'); window.history.replaceState(null, '', u.pathname + u.search + u.hash);
+    return true;
+  } catch { return false; }
+})();
 
 const NAV: { id: Page; label: string; Icon: LucideIcon }[] = [
   { id: 'home', label: 'בית', Icon: Home },
@@ -19,7 +31,7 @@ const NAV: { id: Page; label: string; Icon: LucideIcon }[] = [
 export function App({ userEmail, signOut }: { userEmail: string | null; signOut: (() => void) | null }) {
   const store = useStore();
   const { db, ready, error, saving, kind } = store;
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>(BOOT_GOOGLE ? 'settings' : 'home');
   const [groupId, setGroupId] = useState<string | null>(null);
   const go = useCallback((p: Page, g: string | null = null) => { setPage(p); setGroupId(g); }, []);
   const nav = useMemo(() => ({ page, groupId, go }), [page, groupId, go]);
@@ -31,6 +43,14 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
   useEffect(() => {
     if (!ready || kind !== 'supabase' || !supabase) return;
     void supabase.rpc('create_data_backup', { p_kind: 'auto', p_note: null }).then(() => undefined, () => undefined);
+  }, [ready, kind]);
+
+  // ייבוא אוטומטי מ-Google Calendar בפתיחה (לכל היותר אחת ל-5 דקות). כשל שקט; מצב הסנכרון מוצג בהגדרות.
+  useEffect(() => {
+    if (!ready || kind !== 'supabase' || !supabase) return;
+    try { const last = Number(sessionStorage.getItem('teacher-app:last-gsync') ?? 0); if (Date.now() - last < 300000) return; sessionStorage.setItem('teacher-app:last-gsync', String(Date.now())); } catch { /* ignore */ }
+    void gcal<SyncResult>('sync').then((r) => { if (r.ok && ((r.created ?? 0) + (r.updated ?? 0) + (r.cancelled ?? 0)) > 0) void store.reload(); }, () => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, kind]);
 
   if (!ready) return <div className="center-screen">טוען נתונים…</div>;

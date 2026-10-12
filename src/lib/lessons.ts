@@ -17,5 +17,5 @@ export async function createLessons(store: Store, groupId: string, title: string
 export function logOf(store: Store, id: string) {
   return store.db.lesson_logs.find((l) => l.calendar_event_id === id);
 }
-export const needsDoc = (store: Store, id: string, endAt: string, status: string, now = new Date()) =>
-  status === 'confirmed' && new Date(endAt) < now && (logOf(store, id)?.completion ?? 'pending') === 'pending';
+export const needsDoc = (store: Store, id: string, endAt: string, status: string, now = new Date(), groupId: string | null = 'x') =>
+  !!groupId && status === 'confirmed' && new Date(endAt) < now && (logOf(store, id)?.completion ?? 'pending') === 'pending';

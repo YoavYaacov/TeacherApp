@@ -12,9 +12,9 @@ export function HomePage() {
   const now = new Date();
   const hour = now.getHours();
   const greet = hour < 5 ? 'לילה טוב' : hour < 12 ? 'בוקר טוב' : hour < 18 ? 'צהריים טובים' : 'ערב טוב';
-  const groupName = (id: string | null) => db.study_groups.find((g) => g.id === id)?.name ?? 'שיעור';
+  const groupName = (id: string | null, title?: string) => db.study_groups.find((g) => g.id === id)?.name ?? title ?? 'שיעור';
   const todays = db.calendar_events.filter((l) => l.status === 'confirmed' && new Date(l.start_at).toDateString() === now.toDateString()).sort((a, b) => a.start_at.localeCompare(b.start_at));
-  const pending = db.calendar_events.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now)).sort((a, b) => b.start_at.localeCompare(a.start_at));
+  const pending = db.calendar_events.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now, l.group_id)).sort((a, b) => b.start_at.localeCompare(a.start_at));
   const groups = db.study_groups.filter((g) => !g.archived_at);
   const studentCount = new Set(groups.flatMap((g) => activeStudents(db, g.id).map((s) => s.id))).size;
   const lastBk = lastFileBackup(db);
@@ -36,14 +36,14 @@ export function HomePage() {
         <section className="card"><h2>שיעורי היום</h2>
           {todays.length === 0 ? <p className="muted">אין שיעורים היום</p> :
             <ul className="list">{todays.map((l) => (
-              <li key={l.id}><span>{groupName(l.group_id)}</span>
+              <li key={l.id}><span>{groupName(l.group_id, l.title)}</span>
                 <span className="row"><span className="muted">{fmtTime(l.start_at)}–{fmtTime(l.end_at)}</span>
                   {l.group_id && <button className="btn sm" onClick={() => go('groups', l.group_id)}>פתח</button>}</span></li>))}</ul>}
         </section>
         <section className="card"><h2>תיעודים ממתינים</h2>
           {pending.length === 0 ? <p className="muted">הכול מתועד</p> :
             <ul className="list">{pending.slice(0, 6).map((l) => (
-              <li key={l.id}><span>{groupName(l.group_id)} <span className="muted">· {fmtDay(l.start_at)}</span></span>
+              <li key={l.id}><span>{groupName(l.group_id, l.title)} <span className="muted">· {fmtDay(l.start_at)}</span></span>
                 <button className="btn sm" onClick={() => go('groups', l.group_id)}>תעד</button></li>))}</ul>}
           {pending.length > 6 && <p className="muted">ועוד {pending.length - 6}…</p>}
         </section>

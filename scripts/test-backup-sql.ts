@@ -26,6 +26,8 @@ await db.exec(`insert into owner_config(email) values ('owner@x.com');
   grant execute on all functions in schema public to anon, authenticated;`);
 await db.exec(readFileSync('supabase/migrations/0002_backup_restore.sql', 'utf8'));
 await db.exec(`grant all on app_backups to authenticated; revoke insert, update on app_backups from authenticated;`);
+await db.exec(readFileSync('supabase/migrations/0003_google_calendar.sql', 'utf8'));
+await db.exec('grant all on google_credentials, oauth_states to authenticated, anon; revoke all on google_credentials, oauth_states from anon, authenticated;');
 
 // נתונים
 await as(OWNER);
@@ -126,6 +128,16 @@ ok(e2 !== null && (await cnt('students')) === studentsBefore, 'גיבוי חלק
 const local = { academic_years: snapshot.academic_years.map(({ created_at, updated_at, ...r }: any) => r), study_groups: snapshot.study_groups.map(({ created_at, updated_at, ...r }: any) => r), students: [{ first_name: 'חדש', last_name: 'מקומי' }] };
 await rpc("select restore_backup(null, $1::jsonb, 'merge', false) r", [JSON.stringify(local)]);
 ok((await rpc("select count(*)::int c from students where last_name='מקומי' and id is not null and created_at is not null"))[0].c === 1, 'רשומה בלי id/created_at קיבלה ברירות מחדל');
+
+// 8ב. 0003: טבלאות הטוקנים לא נגישות ללקוח; העמודות החדשות נכללות בגיבוי/שחזור
+await as(OWNER);
+ok((await fail(() => rpc('select * from google_credentials'))) !== null, 'google_credentials לא נגישה לבעלים דרך ה-API');
+ok((await fail(() => rpc("insert into oauth_states(state) values ('x')"))) !== null, 'oauth_states לא נגישה דרך ה-API');
+await db.exec("delete from calendar_events; insert into calendar_events(group_id,title,start_at,end_at,all_day) values ('22222222-2222-2222-2222-222222222222','יא 3','2026-10-12 00:00+00','2026-10-13 00:00+00',true)");
+const exp2 = (await rpc('select export_backup() e'))[0].e;
+ok(exp2.data.calendar_events[0].all_day === true, 'all_day נכלל בגיבוי');
+await rpc("select restore_backup(null, $1::jsonb, 'replace', false, 'REPLACE')", [JSON.stringify(exp2.data)]);
+ok((await rpc("select all_day from calendar_events limit 1"))[0].all_day === true, 'all_day משוחזר');
 
 // 9. מחיקה ידנית של גיבוי ע"י בעלים, וזר לא
 await as(STRANGER);
