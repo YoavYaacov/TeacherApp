@@ -16,11 +16,16 @@ export function useNavSlider(ref: RefObject<HTMLElement | null>, activeKey: stri
   useLayoutEffect(() => {
     const box = ref.current; if (!box) return;
     const place = () => {
-      const el = box.querySelector<HTMLElement>('[aria-current="page"]:not(.nav-ai)');
+      const el = box.querySelector<HTMLElement>('[aria-current="page"]');
       const st = box.style;
       if (!el || hidden) { box.classList.add('slider-off'); return; }
       box.classList.remove('slider-off');
-      st.setProperty('--ix', `${el.offsetLeft}px`); st.setProperty('--iy', `${el.offsetTop}px`); st.setProperty('--iw', `${el.offsetWidth}px`); st.setProperty('--ih', `${el.offsetHeight}px`);
+      let x = el.offsetLeft, y = el.offsetTop, w = el.offsetWidth, h = el.offsetHeight;
+      if (el.classList.contains('nav-ai')) {
+        // כפתור העוזר בנייד: העיגול בולט מעל הסרגל, ולכן המחוון נשאר רק מתחת לעיגול (סביב התווית)
+        const ic = el.querySelector('svg'); if (ic) { const gap = el.getBoundingClientRect().bottom - ic.getBoundingClientRect().bottom; y = y + h - gap - 2; h = gap + 2; }
+      }
+      st.setProperty('--ix', `${x}px`); st.setProperty('--iy', `${y}px`); st.setProperty('--iw', `${w}px`); st.setProperty('--ih', `${h}px`);
     };
     place();
     if (first.current) { first.current = false; requestAnimationFrame(() => box.classList.add('slider-ready')); } // בלי תנועה בטעינה הראשונה
