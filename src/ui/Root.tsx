@@ -6,9 +6,10 @@ import { SupabaseRepo } from '../data/supabaseRepo';
 import { StoreProvider } from '../data/store';
 import { App } from './App';
 import { applyTheme, type ThemeId } from './themes';
-import { applyAnim, localAnim } from './anim';
+import { applyAnim, localAnim, initSliders } from './anim';
 
 export function Root() {
+  useEffect(() => initSliders(), []);
   useEffect(() => { applyAnim(localAnim()); try { applyTheme((localStorage.getItem('teacher-app:theme') as ThemeId) || 'sky-blue'); } catch { applyTheme('sky-blue'); } }, []);
   if (!supabase) return <LocalApp />;
   return <AuthGate />;

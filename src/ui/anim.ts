@@ -33,3 +33,30 @@ export function useNavSlider(ref: RefObject<HTMLElement | null>, activeKey: stri
     return () => ro.disconnect();
   }, [ref, activeKey, hidden]);
 }
+
+/** מחוון מחליק לכל המתגים (.seg, .mini-seg) ולשוניות (.tabs): מוסיף אלמנט אחד ומזיז אותו אל הפריט הפעיל.
+ *  עובד גלובלית דרך MutationObserver, כך שכל מתג קיים וחדש נהנה מזה בלי שינוי ברכיבים. */
+export function initSliders(): () => void {
+  const ACTIVE = '[aria-pressed="true"], [aria-selected="true"]';
+  const place = (box: HTMLElement) => {
+    let ind = box.querySelector<HTMLElement>(':scope > .ind');
+    if (!ind) { ind = document.createElement('span'); ind.className = 'ind'; ind.setAttribute('aria-hidden', 'true'); box.prepend(ind); box.classList.add('has-ind'); }
+    const el = box.querySelector<HTMLElement>(`:scope > ${ACTIVE.split(', ').map((s) => `button${s}`).join(', :scope > ')}`);
+    if (!el || !el.offsetWidth) { ind.style.opacity = '0'; return; }
+    const isTabs = box.classList.contains('tabs');
+    ind.style.opacity = '1';
+    ind.style.width = `${el.offsetWidth}px`;
+    ind.style.height = isTabs ? '3px' : `${el.offsetHeight}px`;
+    ind.style.transform = `translate(${el.offsetLeft}px, ${isTabs ? el.offsetTop + el.offsetHeight - 2 : el.offsetTop}px)`;
+    if (!box.classList.contains('ind-ready')) requestAnimationFrame(() => requestAnimationFrame(() => box.classList.add('ind-ready'))); // בלי תנועה במיקום הראשון
+  };
+  let queued = false;
+  const scan = () => { queued = false; document.querySelectorAll<HTMLElement>('.seg, .mini-seg, .tabs').forEach(place); };
+  const queue = () => { if (!queued) { queued = true; requestAnimationFrame(scan); } };
+  const mo = new MutationObserver(queue);
+  mo.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed', 'aria-selected', 'class'] });
+  window.addEventListener('resize', queue);
+  void document.fonts?.ready.then(queue);
+  queue();
+  return () => { mo.disconnect(); window.removeEventListener('resize', queue); };
+}

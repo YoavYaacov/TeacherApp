@@ -30,6 +30,11 @@ export function applyTheme(id: ThemeId) {
     '--border': t.border, '--sidebar-ink': t.sidebarInk, '--on-accent': t.onAccent, '--muted': t.muted, '--accent-text': t.accentText,
   };
   Object.entries(map).forEach(([k, v]) => s.setProperty(k, v));
+  // צבע ריחוף לכפתורים בצבע הדגש: מבהירים דגש כהה ומכהים דגש בהיר, כדי שהשינוי תמיד יהיה נראה
+  const h = t.accent.replace('#', ''); const c = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const lum = (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+  const mix = lum < 0.5 ? c.map((v) => Math.round(v + (255 - v) * 0.2)) : c.map((v) => Math.round(v * 0.84));
+  s.setProperty('--accent-hover', `rgb(${mix.join(',')})`);
   document.documentElement.dataset.theme = t.id;
   // צבע סרגל החלון / שורת המצב (PWA והדפדפן): תואם לצבע הסרגל העליון של הערכה הפעילה. ה-manifest סטטי ולכן משמש רק למסך פתיחה.
   let m = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');

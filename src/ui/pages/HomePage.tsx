@@ -13,7 +13,7 @@ export function HomePage() {
   const { go, openAssistant } = useNav();
   const now = new Date();
   const hour = now.getHours();
-  const greet = hour < 5 ? 'לילה טוב' : hour < 12 ? 'בוקר טוב' : hour < 18 ? 'צהריים טובים' : 'ערב טוב';
+  const [greet, emoji] = hour < 5 || hour >= 22 ? ['לילה טוב', '🌙'] : hour < 12 ? ['בוקר טוב', '☀️'] : hour < 18 ? ['צהריים טובים', '🌤️'] : ['ערב טוב', '🌇'];
   const groupName = (id: string | null, title?: string) => db.study_groups.find((g) => g.id === id)?.name ?? title ?? 'שיעור';
   const groups = db.study_groups.filter((g) => !g.archived_at);
   // שיעורים קרובים: מה שמתרחש עכשיו ועד שבוע קדימה
@@ -29,7 +29,7 @@ export function HomePage() {
   const dayLabel = (s: string) => { const d = new Date(s); const diff = Math.round((new Date(d.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / 86400000); return diff === 0 ? 'היום' : diff === 1 ? 'מחר' : fmtDay(s); };
   return (
     <>
-      <div className="pagehead"><div><h1>{greet}</h1><p className="muted">{now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}</p></div></div>
+      <div className="pagehead"><div><h1>{greet}, יואב <span aria-hidden>{emoji}</span></h1><p className="muted">{now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}</p></div></div>
       <div className="stats" aria-label="סיכום">
         <div className="stat"><strong>{activeCount}</strong><span>תלמידים פעילים</span></div>
         <div className="stat"><strong>{pending.length}</strong><span>תיעודים ממתינים</span></div>

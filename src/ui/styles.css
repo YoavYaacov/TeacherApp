@@ -48,7 +48,7 @@ main { flex: 1; overflow: auto; }
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-weight: 500; white-space: nowrap; }
 @media (hover: hover) { .btn:hover { background: var(--tint); } }
 .btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-@media (hover: hover) { .btn.primary:hover { filter: brightness(.95); } }
+@media (hover: hover) { .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); } .btn.danger:hover:not(:disabled) { filter: brightness(.93); } }
 .btn.sm { padding: 5px 14px; font-size: 13px; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn[aria-pressed='true'] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -318,3 +318,24 @@ html:not([data-anim='off']) .dots i:nth-child(3) { animation-delay: .4s; }
 
 /* שמירת ציון: הבהוב ירוק עדין */
 html:not([data-anim='off']) .flash-ok { animation: okFlash .8s ease-out; }
+
+/* מחוון מחליק במתגים ובלשוניות (נוסף ב-JS: anim.ts / initSliders) */
+.seg, .mini-seg, .tabs { position: relative; }
+.ind { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 0; border-radius: 999px; background: var(--accent); opacity: 0; }
+.tabs > .ind { border-radius: 3px; }
+.has-ind > button { position: relative; z-index: 1; }
+.seg.has-ind > button[aria-pressed='true'], .mini-seg.has-ind > button[aria-pressed='true'] { background: transparent; color: var(--on-accent); }
+.tabs.has-ind > .tab[aria-selected='true'] { border-bottom-color: transparent; }
+html:not([data-anim='off']) .ind-ready > .ind { transition: transform .26s cubic-bezier(.4, 0, .2, 1), width .26s cubic-bezier(.4, 0, .2, 1), height .26s, opacity .15s; }
+html:not([data-anim='off']) .seg > button, html:not([data-anim='off']) .mini-seg > button { transition: color .2s; }
+.tab { -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) {
+  .seg.has-ind:has(> button[aria-pressed='true']:hover) > .ind, .mini-seg.has-ind:has(> button[aria-pressed='true']:hover) > .ind { background: var(--accent-hover); }
+  .seg > button:not([aria-pressed='true']):hover, .mini-seg > button:not([aria-pressed='true']):hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .tab:hover:not([aria-selected='true']) { color: var(--ink); }
+  html[data-anim='full'] .tab { transition: transform .16s ease-out, color .15s; }
+  html[data-anim='full'] .tab:hover { transform: scale(1.07); }
+  html[data-anim='full'] .seg > button, html[data-anim='full'] .mini-seg > button { transition: transform .14s ease-out, color .2s, background-color .15s; }
+  html[data-anim='full'] .seg > button:hover, html[data-anim='full'] .mini-seg > button:hover { transform: scale(1.06); }
+  .bottomnav .nav-ai:hover svg { background: var(--accent-hover); }
+}

@@ -1,6 +1,6 @@
 import { SortTh, sortRows, useSort } from '../sort';
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, ClipboardList, Pencil, Plus, Sparkles, Trash2, Users, type LucideIcon } from 'lucide-react';
+import { BookOpen, ClipboardList, Pencil, Plus, Trash2, Users, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { useNav } from '../nav';
 import { Modal } from '../Modal';
@@ -143,7 +143,7 @@ let restoreTab: { tab: GroupTab; group: string } | null = boot.tab && boot.tabGr
 let keepTab: GroupTab | null = null; // מעבר בין קבוצות שומר את הלשונית הנוכחית; כניסה מהרשימה תמיד לשיעורים
 function GroupPage({ id }: { id: string }) {
   const store = useStore();
-  const { go, openAssistant } = useNav();
+  const { go } = useNav();
   const group = store.db.study_groups.find((g) => g.id === id);
   const [tab, setTabRaw] = useState<GroupTab>(() => { const r = restoreTab && restoreTab.group === id ? restoreTab.tab : null; restoreTab = null; const t = keepTab ?? r ?? 'lessons'; keepTab = null; saveView({ tab: t, tabGroup: id }); return t; });
   const setTab = (t: GroupTab) => { setTabRaw(t); saveView({ tab: t, tabGroup: id }); }; // ברירת מחדל בכניסה: שיעורים
@@ -163,7 +163,6 @@ function GroupPage({ id }: { id: string }) {
           <h1>{group.name} {group.archived_at && <span className="badge">בארכיון</span>}</h1></div>
         {others.length > 0 && <select className="input" aria-label="מעבר לקבוצה אחרת" value="" onChange={(e) => { if (e.target.value) { keepTab = tab; go('groups', e.target.value); } }}>
           <option value="">מעבר לקבוצה…</option>{others.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
-        {!group.archived_at && <button className="btn" onClick={() => openAssistant({ kind: 'group', group_id: group.id })}><Sparkles size={16} aria-hidden />עוזר</button>}
         <button className="btn" onClick={() => setEditing(true)}><Pencil size={16} aria-hidden />עריכה</button>
       </div>
       <div className="tabs" role="tablist" aria-label="לשוניות קבוצה">

@@ -1,9 +1,8 @@
 import { SortTh, sortRows, useSort } from '../sort';
 import { useMemo, useState } from 'react';
-import { Download, FileUp, Plus, Search, UserMinus, UserPlus, ClipboardPaste, Undo2, ArrowLeftRight, Sparkles } from 'lucide-react';
+import { Download, FileUp, Plus, Search, UserMinus, UserPlus, ClipboardPaste, Undo2, ArrowLeftRight } from 'lucide-react';
 import { useStore, type Store } from '../../data/store';
 import { Modal } from '../Modal';
-import { useNav } from '../nav';
 import { download, hebSort, normalizeClass, parseStudentLine, toCSV, today } from '../../lib/util';
 import { activeStudents, label } from '../../lib/domain';
 import { studentGrades, termConfig, storedFinal } from '../../lib/gradebook';
@@ -91,7 +90,7 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
       </div>
       {modal === 'add' && <AddStudent group={group} onClose={() => setModal(null)} />}
       {modal === 'paste' && <PasteImport group={group} onClose={() => setModal(null)} />}
-      {modal && typeof modal === 'object' && 'card' in modal && <StudentCard student={modal.card} groupId={group.id} onClose={() => setModal(null)} />}
+      {modal && typeof modal === 'object' && 'card' in modal && <StudentCard student={modal.card} onClose={() => setModal(null)} />}
       {modal && typeof modal === 'object' && 'move' in modal && <MoveStudent student={modal.move} from={group} onClose={() => setModal(null)} />}
     </>
   );
@@ -178,8 +177,8 @@ function MoveStudent({ student, from, onClose }: { student: Student; from: Study
   </div></Modal>;
 }
 
-export function StudentCard({ student, onClose, groupId }: { student: Student; onClose: () => void; groupId?: string }) {
-  const store = useStore(); const { openAssistant } = useNav();
+export function StudentCard({ student, onClose }: { student: Student; onClose: () => void }) {
+  const store = useStore();
   const { db } = store;
   const [last, setLast] = useState(student.last_name); const [first, setFirst] = useState(student.first_name); const [cls, setCls] = useState(student.home_class ?? ''); const [gender, setGender] = useState<'m' | 'f' | ''>(student.gender ?? '');
   const groupIds = [...new Set(db.enrollments.filter((e) => e.student_id === student.id).map((e) => e.group_id))];
@@ -209,7 +208,6 @@ export function StudentCard({ student, onClose, groupId }: { student: Student; o
           return <tr key={gid}><td>{g.name}</td><td>{show(a)}</td><td>{show(b)}</td><td>{annual ?? '—'}</td></tr>;
         })}</tbody></table>}
       <p className="muted">ירוק = ציון סופי מאושר; אדום = ציון מחושב שטרם אושר.</p>
-      {groupIds.length > 0 && <button className="btn" style={{ width: 'fit-content' }} onClick={() => { onClose(); openAssistant({ kind: 'student', group_id: groupId && groupIds.includes(groupId) ? groupId : groupIds[0], student_id: student.id }); }}><Sparkles size={16} aria-hidden />ניתוח AI</button>}
       {evals.length > 0 && <><h2>הערכות תעודה שמורות</h2>{evals.map((e) => <div key={e.id} className="ai-card"><strong>{db.study_groups.find((g) => g.id === e.group_id)?.name} · {e.period === 'h1' ? 'מחצית א׳' : e.period === 'h2' ? 'מחצית ב׳' : 'שנתי'}</strong><p dir="auto" style={{ margin: '6px 0' }}>{e.text}</p><button className="btn sm" onClick={() => void navigator.clipboard?.writeText(e.text)}>העתק</button></div>)}</>}
     </div></Modal>
   );
