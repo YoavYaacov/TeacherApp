@@ -92,17 +92,17 @@ export function LessonsTab({ group }: { group: StudyGroup }) {
         {!googleLinked(store.db) && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden />הוסף שיעור</button>}
       </div>
       <div className="grid">
+        <section className="card full"><h2>שיעורים קודמים ותיעוד</h2>
+          {past.length === 0 && <p className="muted">עדיין אין שיעורים קודמים</p>}
+          {shown.map((l) => <LessonCard key={l.id} lesson={l} />)}
+          {past.length > shown.length && !showAll && <button className="btn sm" onClick={() => setShowAll(true)}>הצג את כל {past.length} השיעורים</button>}
+          {showAll && past.length > 3 && <button className="btn sm" onClick={() => setShowAll(false)}>הצג פחות</button>}
+        </section>
         <section className="card"><h2>שיעורים עתידיים</h2>
           {future.length === 0 ? <p className="muted">אין שיעורים עתידיים</p> :
             <ul className="list">{future.map((l) => (
               <li key={l.id}><span>{fmtDay(l.start_at)} <bdi dir="ltr" className="muted">{fmtTime(l.start_at)}–{fmtTime(l.end_at)}</bdi></span>
                 {l.source === 'google' ? <span className="muted">נערך ב-Google</span> : <button className="btn sm" aria-label="ניהול שיעור" onClick={() => setManage(l)}>ניהול</button>}</li>))}</ul>}
-        </section>
-        <section className="card span2"><h2>שיעורים קודמים ותיעוד</h2>
-          {past.length === 0 && <p className="muted">עדיין אין שיעורים קודמים</p>}
-          {shown.map((l) => <LessonCard key={l.id} lesson={l} />)}
-          {past.length > shown.length && !showAll && <button className="btn sm" onClick={() => setShowAll(true)}>הצג את כל {past.length} השיעורים</button>}
-          {showAll && past.length > 3 && <button className="btn sm" onClick={() => setShowAll(false)}>הצג פחות</button>}
         </section>
       </div>
       {adding && <AddLessonModal groups={[group]} groupId={group.id} onClose={() => setAdding(false)} />}
