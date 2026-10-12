@@ -25,7 +25,7 @@ const BOOT_GOOGLE = (() => {
 })();
 
 const HOME = { id: 'home' as Page, label: 'בית', Icon: Home }, GROUPS = { id: 'groups' as Page, label: 'קבוצות לימוד', Icon: GraduationCap }, CAL = { id: 'calendar' as Page, label: 'יומן', Icon: CalendarDays }, SET = { id: 'settings' as Page, label: 'הגדרות', Icon: Cog };
-const AI = { id: 'assistant' as Page, label: 'עוזר', Icon: Sparkles };
+const AI = { id: 'assistant' as Page, label: 'עוזר אישי', Icon: Sparkles };
 type NavItem = { id: Page; label: string; Icon: LucideIcon };
 const NAV: NavItem[] = [HOME, { ...AI, label: 'העוזר האישי' }, GROUPS, CAL, SET];       // סרגל צד
 const BOTTOM: NavItem[] = [HOME, GROUPS, AI, CAL, SET];                                   // סרגל תחתון: ✨ במרכז
