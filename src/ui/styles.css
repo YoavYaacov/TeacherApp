@@ -126,6 +126,7 @@ table.gb { border-collapse: separate; border-spacing: 0; width: max-content; min
 .lesson-card { border-bottom: 1px solid var(--border); padding: 0 0 20px; margin-bottom: 20px; }
 .lesson-card:last-of-type { border-bottom: 0; margin-bottom: 8px; }
 .card.span2 { grid-column: span 2; }
+.card.full { grid-column: 1 / -1; }
 
 /* יומן */
 .weekgrid { display: grid; grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr)); gap: 12px; }
