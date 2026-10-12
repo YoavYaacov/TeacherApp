@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useSort } from '../sort';
 import { useMemo, useState } from 'react';
 import { CheckCheck, Download, Settings2 } from 'lucide-react';
 import { useStore } from '../../data/store';
@@ -41,19 +42,20 @@ function TermGrid({ group, term }: { group: StudyGroup; term: 1 | 2 }) {
   const [config, setConfig] = useState(false);
   const [focusEvent, setFocusEvent] = useState<string | null>(null);
   const [ovr, setOvr] = useState<{ sid: string; eid: string } | null>(null);
-  const [sortBy, setSortBy] = useState<'name' | 'class'>('name');
+  const sort = useSort<'name' | 'class' | 'avg' | 'final'>('name', { avg: 'desc', final: 'desc' });
   const cfg = useMemo(() => termConfig(db, group.id, term), [db, group.id, term]);
   const issues = validateTermConfig(cfg);
   const eventRows = cfg.categories.flatMap((c) => c.events.filter((e) => !e.cancelled).map((e) => ({ e, cat: c.name, row: db.assessment_events.find((x) => x.id === e.id)! })));
   const allEventRows = db.assessment_events.filter((e) => e.group_id === group.id && e.term === term);
-  const students = activeStudents(db, group.id).sort((a, b) => sortBy === 'class' ? hebSort(a.home_class ?? '', b.home_class ?? '') || hebSort(label(a), label(b)) : hebSort(label(a), label(b)));
+  const students = activeStudents(db, group.id).sort((a, b) => hebSort(label(a), label(b)));
 
-  const results = students.map((s) => {
+  const computed = students.map((s) => {
     const g = studentGrades(db, s.id, allEventRows);
     const r = computeTerm(cfg, g);
     const fin = finalStatus(storedFinal(db, group.id, s.id, period), r.calculated);
     return { s, g, r, fin };
   });
+  const results = sortRows(computed, ({ s, r, fin }, k) => k === 'name' ? label(s) : k === 'class' ? s.home_class : k === 'avg' ? r.calculatedRounded : fin.value, sort.key, sort.dir, (a, b) => hebSort(label(a.s), label(b.s)));
   const setFinal = (sid: string, v: number | null, calc: number | null) => {
     if (v === null) store.delFast('final_grades', { group_id: group.id, student_id: sid, period });
     else store.saveFast('final_grades', [{ group_id: group.id, student_id: sid, period, value: v, source: 'override', basis_calculated: calc }]);
@@ -90,22 +92,21 @@ function TermGrid({ group, term }: { group: StudyGroup; term: 1 | 2 }) {
         <button className="btn" onClick={() => setConfig(true)}><Settings2 size={16} aria-hidden />הגדרות הערכה</button>
         <button className="btn" disabled={approvable.length === 0} onClick={approveAll}><CheckCheck size={16} aria-hidden />אשר את כל המלאים ({approvable.length})</button>
         <button className="icon-btn" aria-label="ייצוא CSV" title="ייצוא CSV" onClick={exportCsv}><Download size={18} /></button>
-        <select className="input" aria-label="מיון" value={sortBy} onChange={(e) => setSortBy(e.target.value as 'name' | 'class')}><option value="name">מיון: שם</option><option value="class">מיון: כיתת אם</option></select>
       </div>
       {issues.map((i, k) => <p key={k} className="issue" role="alert">{i.message}</p>)}
       {cfg.categories.length === 0 && <div className="card"><p>עדיין לא הוגדרו קטגוריות הערכה למחצית הזו. פתח ״הגדרות הערכה״ כדי להגדיר קטגוריות (מבחנים, בוחנים…) ואירועי הערכה.</p></div>}
       {cfg.categories.length > 0 && <>
         <p className="muted">הזנה: מספר 0–100, ״פ״ = פטור, ״ל״ = לא נבחן, ריק = לא הוזן. אפשר להדביק טווח מ-Excel. לחיצה על שם אירוע: הזנה מרוכזת, מועד ב׳ ומדיניות. אדום = חישוב חלקי, ירוק = ציון סופי מאושר.</p>
         <div className="gridwrap card flush"><table className="gb" onPaste={onPaste}>
-          <thead><tr><th className="name">תלמיד</th>
+          <thead><tr><SortTh k="name" sort={sort} className="name">תלמיד</SortTh><SortTh k="class" sort={sort}>כיתה</SortTh>
             {eventRows.map((x) => (
               <th key={x.e.id}><button className="linklike plain" onClick={() => setFocusEvent(x.e.id)} title="הזנה מרוכזת, מועד ב׳ ומדיניות">{x.row.title}</button><div className="muted">{x.cat}</div>
               </th>))}
-            <th>ממוצע</th><th>סופי</th></tr></thead>
+            <SortTh k="avg" sort={sort}>ממוצע</SortTh><SortTh k="final" sort={sort}>סופי</SortTh></tr></thead>
           <tbody>{results.map(({ s, g, r, fin }, ri) => {
             const dropped = new Set(r.categories.map((c) => c.droppedEventId));
             return (
-              <tr key={s.id}><td className="name">{label(s)}</td>
+              <tr key={s.id}><td className="name">{label(s)}</td><td className="muted">{s.home_class ?? '—'}</td>
                 {eventRows.map((x, ci) => {
                   const gb = g[x.e.id];
                   const bothScores = gb.a.kind === 'score' && gb.b?.kind === 'score';
@@ -150,19 +151,21 @@ function AnnualGrid({ group }: { group: StudyGroup }) {
   const { db } = store;
   const w1 = Number(group.annual_weight_h1), w2 = Number(group.annual_weight_h2);
   const students = activeStudents(db, group.id).sort((a: Student, b: Student) => hebSort(label(a), label(b)));
-  const rows = students.map((s) => {
+  const sort = useSort<'name' | 'f1' | 'f2' | 'calc' | 'final'>('name', { f1: 'desc', f2: 'desc', calc: 'desc', final: 'desc' });
+  const base = students.map((s) => {
     const f1 = storedFinal(db, group.id, s.id, 'h1')?.value ?? null, f2 = storedFinal(db, group.id, s.id, 'h2')?.value ?? null;
     const a = computeAnnual(f1, f2, w1, w2);
     const fin = finalStatus(storedFinal(db, group.id, s.id, 'annual'), a.calculated);
     return { s, f1, f2, a, fin };
   });
+  const rows = sortRows(base, ({ s, f1, f2, a, fin }, k) => k === 'name' ? label(s) : k === 'f1' ? f1 : k === 'f2' ? f2 : k === 'calc' ? a.calculatedRounded : fin.value, sort.key, sort.dir, (x, y) => hebSort(label(x.s), label(y.s)));
   const approve = (sid: string, calc: number) => { const f = approveCalculated(calc); store.saveFast('final_grades', [{ group_id: group.id, student_id: sid, period: 'annual', value: f.value, source: 'approved', basis_calculated: calc }]); };
   const exportCsv = () => download(`ציונים-${group.name}-שנתי.csv`, toCSV([['שם', 'כיתת אם', 'סופי מחצית א׳', 'סופי מחצית ב׳', 'שנתי מחושב', 'שנתי סופי'], ...rows.map((r) => [label(r.s), r.s.home_class, r.f1, r.f2, r.a.calculatedRounded, r.fin.value])]));
   return (
     <>
       <div className="toolbar"><span className="spacer" /><button className="icon-btn" aria-label="ייצוא CSV" title="ייצוא CSV" onClick={exportCsv}><Download size={18} /></button></div>
       <p className="muted">ציון שנתי מחושב מהציונים הסופיים של שתי המחציות בלבד (משקלים {w1}/{w2}, ניתן לשינוי בעריכת הקבוצה). אם מחצית לא אושרה — אין ציון שנתי מחושב.</p>
-      <div className="gridwrap card flush"><table className="gb"><thead><tr><th className="name">תלמיד</th><th>סופי מחצית א׳</th><th>סופי מחצית ב׳</th><th>שנתי מחושב</th><th>שנתי סופי</th></tr></thead>
+      <div className="gridwrap card flush"><table className="gb"><thead><tr><SortTh k="name" sort={sort} className="name">תלמיד</SortTh><SortTh k="f1" sort={sort}>סופי מחצית א׳</SortTh><SortTh k="f2" sort={sort}>סופי מחצית ב׳</SortTh><SortTh k="calc" sort={sort}>שנתי מחושב</SortTh><SortTh k="final" sort={sort}>שנתי סופי</SortTh></tr></thead>
         <tbody>{rows.map(({ s, f1, f2, a, fin }) => (
           <tr key={s.id}><td className="name">{label(s)}</td><td>{f1 ?? '—'}</td><td>{f2 ?? '—'}</td>
             <td className="calc">{a.calculatedRounded ?? <span className="muted">חסר: מחצית {a.missingTerms.map((t) => (t === 1 ? 'א׳' : 'ב׳')).join(' + ')}</span>}</td>

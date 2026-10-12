@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, GraduationCap, Home, LogOut, Settings as Cog, type LucideIcon } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { useStore } from '../data/store';
 import { applyTheme, type ThemeId } from './themes';
 import { NavCtx, type Page } from './nav';
@@ -25,6 +26,12 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
 
   const dbTheme = db.user_settings[0]?.theme as ThemeId | undefined;
   useEffect(() => { if (dbTheme) { applyTheme(dbTheme); try { localStorage.setItem('teacher-app:theme', dbTheme); } catch { /* ignore */ } } }, [dbTheme]);
+
+  // גיבוי אוטומטי במסד (השרת מחליט אם לדלג: פעם ביום ורק אם יש שינוי). כשל שקט, לא חוסם עבודה.
+  useEffect(() => {
+    if (!ready || kind !== 'supabase' || !supabase) return;
+    void supabase.rpc('create_data_backup', { p_kind: 'auto', p_note: null }).then(() => undefined, () => undefined);
+  }, [ready, kind]);
 
   if (!ready) return <div className="center-screen">טוען נתונים…</div>;
   return (

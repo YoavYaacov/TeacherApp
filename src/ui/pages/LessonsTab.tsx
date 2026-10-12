@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Download, Plus, Trash2, XCircle } from 'lucide-react';
+import { Download, Plus, Trash2, XCircle } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { Modal } from '../Modal';
 import { createLessons, logOf } from '../../lib/lessons';
@@ -45,10 +45,9 @@ function LessonCard({ lesson }: { lesson: CalendarEvent }) {
   };
   useEffect(() => () => window.clearTimeout(timer.current), []);
   const set = (k: keyof typeof f, v: string) => { setF({ ...f, [k]: v }); window.clearTimeout(timer.current); latest.current = { ...f, [k]: v }; timer.current = window.setTimeout(() => persist(), 700); };
-  const field = (k: keyof typeof f, label: string, multiline = false) => (
+  const field = (k: keyof typeof f, label: string) => (
     <label className="field">{label}
-      {multiline ? <textarea className="input" rows={2} value={f[k]} onChange={(e) => set(k, e.target.value)} onBlur={() => persist()} />
-        : <input className="input" value={f[k]} onChange={(e) => set(k, e.target.value)} onBlur={() => persist()} />}
+      <textarea className="input" rows={2} value={f[k]} onChange={(e) => set(k, e.target.value)} onBlur={() => persist()} />
     </label>);
   return (
     <div className="lesson-card">
@@ -56,17 +55,14 @@ function LessonCard({ lesson }: { lesson: CalendarEvent }) {
         <strong>{fmtDay(lesson.start_at)} · {fmtTime(lesson.start_at)}</strong>
         <span className="row">
           {lesson.status === 'cancelled' ? <span className="badge">בוטל</span>
-            : completion === 'pending' ? <span className="badge warn">ממתין לתיעוד</span>
-            : <span className="badge ok">{completion === 'done' ? 'מתועד' : 'אין צורך בתיעוד'}</span>}
+            : <span className="mini-seg big" role="group" aria-label="סטטוס תיעוד">
+              {([['pending', 'ממתין'], ['done', 'מתועד'], ['not_needed', 'אין צורך']] as const).map(([id, l]) =>
+                <button key={id} aria-pressed={completion === id} onClick={() => persist({ completion: id })}>{l}</button>)}
+            </span>}
         </span>
       </div>
       {lesson.status !== 'cancelled' && (<>
-        <div className="form two">{field('topic', 'נושא')}{field('learned', 'מה נלמד', true)}{field('homework', 'שיעורי בית', true)}{field('private_note', 'הערה פרטית (לא מוצגת בייצוא)', true)}</div>
-        <div className="row" style={{ marginTop: 8 }}>
-          <button className="btn sm" onClick={() => persist({ completion: 'done' })}><Check size={14} aria-hidden />סמן כמתועד</button>
-          <button className="btn sm" onClick={() => persist({ completion: 'not_needed' })}>אין צורך בתיעוד</button>
-          {completion !== 'pending' && <button className="btn sm" onClick={() => persist({ completion: 'pending' })}>החזר לממתין</button>}
-        </div>
+        <div className="form two">{field('topic', 'נושא')}{field('learned', 'מה נלמד')}{field('homework', 'שיעורי בית')}{field('private_note', 'הערה פרטית (לא מוצגת בייצוא)')}</div>
       </>)}
     </div>
   );

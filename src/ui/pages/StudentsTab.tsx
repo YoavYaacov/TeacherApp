@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useSort } from '../sort';
 import { useMemo, useState } from 'react';
 import { Download, FileUp, Plus, Search, UserMinus, UserPlus, ClipboardPaste, Undo2, ArrowLeftRight } from 'lucide-react';
 import { useStore, type Store } from '../../data/store';
@@ -27,7 +28,7 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
   const { db } = store;
   const [q, setQ] = useState('');
   const [cls, setCls] = useState('');
-  const [sort, setSort] = useState<'name' | 'class'>('name');
+  const sort = useSort<'name' | 'class' | 'date'>('name', { date: 'desc' });
   const [archive, setArchive] = useState(false);
   const [modal, setModal] = useState<null | 'add' | 'paste' | { card: Student } | { move: Student }>(null);
 
@@ -41,8 +42,8 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
     list.forEach((r) => { const p = uniq.get(r.s?.id); if (r.s && (!p || (r.e.left_at ?? '') > (p.e.left_at ?? ''))) uniq.set(r.s.id, r); });
     return [...uniq.values()]
       .filter(({ s }) => (!cls || s.home_class === cls) && label(s).includes(q.trim()))
-      .sort((a, b) => sort === 'class' ? hebSort(a.s.home_class ?? '', b.s.home_class ?? '') || hebSort(label(a.s), label(b.s)) : hebSort(label(a.s), label(b.s)));
-  }, [db, group.id, archive, q, cls, sort]);
+  }, [db, group.id, archive, q, cls]);
+  const sorted = useMemo(() => sortRows(rows, ({ s, e }, k) => k === 'name' ? label(s) : k === 'class' ? s.home_class : (archive ? e.left_at : e.joined_at), sort.key, sort.dir, (a, b) => hebSort(label(a.s), label(b.s))), [rows, sort.key, sort.dir, archive]);
   const classes = [...new Set(db.students.map((s) => s.home_class).filter((c): c is string => !!c))].sort(hebSort);
 
   const remove = async (studentId: string) => {
@@ -63,7 +64,6 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
         <div className="seg" role="group" aria-label="תצוגה"><button aria-pressed={!archive} onClick={() => setArchive(false)}>פעילים</button><button aria-pressed={archive} onClick={() => setArchive(true)}>ארכיון</button></div>
         <label className="search"><Search size={16} aria-hidden /><input aria-label="חיפוש תלמיד" placeholder="חיפוש לפי שם" value={q} onChange={(e) => setQ(e.target.value)} /></label>
         <select className="input" aria-label="סינון לפי כיתת אם" value={cls} onChange={(e) => setCls(e.target.value)}><option value="">כל הכיתות</option>{classes.map((c) => <option key={c}>{c}</option>)}</select>
-        <select className="input" aria-label="מיון" value={sort} onChange={(e) => setSort(e.target.value as 'name' | 'class')}><option value="name">מיון: שם</option><option value="class">מיון: כיתת אם</option></select>
       </div>
       <div className="toolbar actions-row">
         {archive ? <span className="muted">תלמידים שנגרעו מהקבוצה. הציונים שלהם נשמרים; אפשר לשחזר או להעביר.</span> : <>
@@ -74,8 +74,8 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
       </div>
       <div className="card flush">
         {rows.length === 0 ? <p className="muted pad">{archive ? 'אין תלמידים בארכיון' : 'אין תלמידים. הוסף תלמיד או הדבק רשימה.'}</p> :
-          <table className="dt"><thead><tr><th>שם</th><th>כיתת אם</th><th>{archive ? 'נגרע בתאריך' : 'הצטרף'}</th><th /></tr></thead>
-            <tbody>{rows.map(({ e, s }) => (
+          <table className="dt"><thead><tr><SortTh k="name" sort={sort}>שם</SortTh><SortTh k="class" sort={sort}>כיתת אם</SortTh><SortTh k="date" sort={sort}>{archive ? 'נגרע בתאריך' : 'הצטרף'}</SortTh><th /></tr></thead>
+            <tbody>{sorted.map(({ e, s }) => (
               <tr key={e.id}>
                 <td><button className="linklike plain" onClick={() => setModal({ card: s })}>{label(s)}</button></td>
                 <td>{s.home_class ? <span className="badge">{s.home_class}</span> : '—'}</td>

@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useSort } from '../sort';
 import { useState } from 'react';
 import { Modal } from '../Modal';
 import { useStore } from '../../data/store';
@@ -12,15 +13,11 @@ export function EventFocus({ eventId, students, onClose }: { group: StudyGroup; 
   const commit = useGradeActions();
   const ev = db.assessment_events.find((e) => e.id === eventId)!;
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState<'name' | 'asc' | 'desc' | 'missing'>('name');
+  const sort = useSort<'name' | 'score' | 'b'>('name', { score: 'desc', b: 'desc' });
   const a = (sid: string) => db.grades.find((g) => g.event_id === eventId && g.student_id === sid && g.attempt === 1);
   const b = (sid: string) => db.grades.find((g) => g.event_id === eventId && g.student_id === sid && g.attempt === 2);
   const val = (sid: string) => { const g = a(sid); return g?.status === 'score' ? Number(g.score) : null; };
-  const list = students.filter((s) => label(s).includes(q.trim())).sort((x, y) => {
-    if (sort === 'asc' || sort === 'desc') { const vx = val(x.id), vy = val(y.id); if (vx === null && vy !== null) return 1; if (vy === null && vx !== null) return -1; if (vx !== null && vy !== null && vx !== vy) return sort === 'asc' ? vx - vy : vy - vx; }
-    if (sort === 'missing') { const mx = a(x.id) ? 1 : 0, my = a(y.id) ? 1 : 0; if (mx !== my) return mx - my; }
-    return hebSort(label(x), label(y));
-  });
+  const list = sortRows(students.filter((s) => label(s).includes(q.trim())), (s, k) => k === 'name' ? label(s) : k === 'score' ? val(s.id) : (b(s.id)?.status === 'score' ? Number(b(s.id)!.score) : null), sort.key, sort.dir, (x, y) => hebSort(label(x), label(y)));
   return (
     <Modal title={`הזנה מרוכזת: ${ev.title}`} onClose={onClose}>
       <div className="row" style={{ marginBottom: 12 }}>
@@ -31,11 +28,9 @@ export function EventFocus({ eventId, students, onClose }: { group: StudyGroup; 
       </div>
       <div className="row" style={{ marginBottom: 8 }}>
         <input className="input" aria-label="חיפוש" placeholder="חיפוש תלמיד" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input" aria-label="מיון" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-          <option value="name">מיון: שם</option><option value="missing">חסרים קודם</option><option value="asc">ציון עולה</option><option value="desc">ציון יורד</option></select>
       </div>
       <p className="muted">מספר 0–100, ״פ״ פטור, ״ל״ לא נבחן. Enter עובר לשורה הבאה.</p>
-      <table className="gb focus"><thead><tr><th className="name">תלמיד</th><th>ציון</th><th>מועד ב׳</th></tr></thead>
+      <table className="gb focus"><thead><tr><SortTh k="name" sort={sort} className="name">תלמיד</SortTh><SortTh k="score" sort={sort}>ציון</SortTh><SortTh k="b" sort={sort}>מועד ב׳</SortTh></tr></thead>
         <tbody>{list.map((s, i) => (
           <tr key={s.id}><td className="name">{label(s)}</td>
             <td><GradeInput cur={a(s.id)} r={i} c={0} att={1} label={`${label(s)} ציון`} onCommit={(t) => commit(s.id, eventId, 1, t)} /></td>

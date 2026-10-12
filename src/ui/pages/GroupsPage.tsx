@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useSort } from '../sort';
 import { useState } from 'react';
 import { BookOpen, ClipboardList, Pencil, Plus, Users, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../data/store';
@@ -20,7 +21,9 @@ function GroupsList() {
   const { go } = useNav();
   const [showArchived, setShowArchived] = useState(false);
   const [adding, setAdding] = useState(false);
-  const list = store.db.study_groups.filter((g) => !!g.archived_at === showArchived).sort((a, b) => a.name.localeCompare(b.name, 'he'));
+  const list = store.db.study_groups.filter((g) => !!g.archived_at === showArchived)
+  const sort = useSort<'name' | 'level' | 'count' | 'status'>('name', { count: 'desc' });
+  const sortedList = sortRows(list, (g, k) => k === 'name' ? g.name : k === 'level' ? g.grade_level : k === 'count' ? activeStudents(store.db, g.id).length : (g.archived_at ? 1 : 0), sort.key, sort.dir, (a, b) => a.name.localeCompare(b.name, 'he'));
   return (
     <>
       <div className="pagehead"><h1>קבוצות לימוד</h1>
@@ -33,8 +36,8 @@ function GroupsList() {
       </div>
       <div className="card flush">
         {list.length === 0 ? <p className="muted pad">{showArchived ? 'אין קבוצות בארכיון' : 'עדיין אין קבוצות. לחץ על ״קבוצה חדשה״.'}</p> :
-          <table className="dt"><thead><tr><th>שם הקבוצה</th><th>שכבה</th><th>תלמידים</th><th>סטטוס</th><th /></tr></thead>
-            <tbody>{list.map((g) => (
+          <table className="dt"><thead><tr><SortTh k="name" sort={sort}>שם הקבוצה</SortTh><SortTh k="level" sort={sort}>שכבה</SortTh><SortTh k="count" sort={sort}>תלמידים</SortTh><SortTh k="status" sort={sort}>סטטוס</SortTh><th /></tr></thead>
+            <tbody>{sortedList.map((g) => (
               <tr key={g.id}><td><strong>{g.name}</strong></td><td>{g.grade_level ?? '—'}</td><td>{activeStudents(store.db, g.id).length}</td>
                 <td><span className={`badge ${g.archived_at ? '' : 'ok'}`}>{g.archived_at ? 'בארכיון' : 'פעילה'}</span></td>
                 <td className="actions"><button className="btn primary sm" onClick={() => go('groups', g.id)}>פתח</button></td></tr>))}</tbody></table>}

@@ -3,6 +3,7 @@ import { useNav } from '../nav';
 import { fmtDay, fmtTime } from '../../lib/util';
 import { needsDoc } from '../../lib/lessons';
 import { activeStudents } from '../../lib/domain';
+import { lastFileBackup } from './BackupPanel';
 
 export function HomePage() {
   const store = useStore();
@@ -16,6 +17,10 @@ export function HomePage() {
   const pending = db.calendar_events.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now)).sort((a, b) => b.start_at.localeCompare(a.start_at));
   const groups = db.study_groups.filter((g) => !g.archived_at);
   const studentCount = new Set(groups.flatMap((g) => activeStudents(db, g.id).map((s) => s.id))).size;
+  const lastBk = lastFileBackup(db);
+  const hasData = db.students.length + db.study_groups.length > 0;
+  const bkDays = lastBk ? Math.floor((now.getTime() - new Date(lastBk).getTime()) / 86400000) : null;
+  const needBackup = hasData && (bkDays === null || bkDays >= 7);
   const stats = [
     { n: todays.length, l: 'שיעורים היום' },
     { n: pending.length, l: 'תיעודים ממתינים' },
@@ -25,6 +30,7 @@ export function HomePage() {
   return (
     <>
       <div className="pagehead"><div><h1>{greet}</h1><p className="muted">{now.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}</p></div></div>
+      {needBackup && <div className="note-banner" role="note">{bkDays === null ? 'עדיין לא הורדת גיבוי לקובץ.' : `הגיבוי האחרון לקובץ היה לפני ${bkDays} ימים.`} מומלץ להוריד אחד: הגדרות &gt; גיבויים ונתונים. <button className="btn sm" onClick={() => go('settings')}>להגדרות</button></div>}
       <div className="stats">{stats.map((s) => <div key={s.l} className="stat"><strong>{s.n}</strong><span>{s.l}</span></div>)}</div>
       <div className="grid">
         <section className="card"><h2>שיעורי היום</h2>

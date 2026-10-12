@@ -3,8 +3,9 @@ import { CalendarDays, Database, Palette, SlidersHorizontal, UserCog, type Lucid
 import { useStore } from '../../data/store';
 import { THEMES, applyTheme, type ThemeId } from '../themes';
 import { defaultYear } from '../../lib/domain';
-import { download, fmtDate, toCSV } from '../../lib/util';
-import { TABLES, type AcademicYear, type DB } from '../../data/types';
+import { fmtDate } from '../../lib/util';
+import type { AcademicYear } from '../../data/types';
+import { BackupPanel } from './BackupPanel';
 
 const CATS: { id: string; label: string; Icon: LucideIcon }[] = [
   { id: 'general', label: 'כללי', Icon: SlidersHorizontal },
@@ -26,7 +27,7 @@ export function SettingsPage({ userEmail, signOut }: { userEmail: string | null;
           {cat === 'general' && <General />}
           {cat === 'appearance' && <Appearance />}
           {cat === 'calendar' && <><h2>יומן וסנכרון</h2><p>כרגע השיעורים נשמרים בלוח פנימי. חיבור ל-Google Calendar יתווסף בגרסה הבאה, בלי צורך להזין מחדש שיעורים.</p></>}
-          {cat === 'backup' && <Backup />}
+          {cat === 'backup' && <BackupPanel />}
           {cat === 'account' && <><h2>חשבון ואבטחה</h2>
             {userEmail ? <><p>מחובר כ-{userEmail}. הגישה לנתונים מוגבלת לחשבון זה בלבד (RLS בצד השרת).</p>{signOut && <button className="btn" onClick={signOut}>התנתק</button>}</>
               : <p>מצב מקומי: אין התחברות. הנתונים נשמרים בדפדפן במכשיר הזה בלבד. כדי לעבוד מכמה מכשירים עם התחברות Google יש לחבר מסד נתונים (ראה docs/SETUP.md).</p>}</>}
@@ -66,31 +67,4 @@ function General() {
         <p className="muted">מחצית א׳: {fmtDate(y.term1_start)}–{fmtDate(y.term1_end)} · מחצית ב׳: {fmtDate(y.term2_start)}–{fmtDate(y.term2_end)}</p>
       </div>))}
     <button className="btn" disabled={adding} onClick={async () => { setAdding(true); await store.save('academic_years', [{ ...defaultYear(years.length ? new Date(new Date(years[years.length - 1].end_date).getTime() + 86400000 * 90) : new Date()), archived_at: null }]); setAdding(false); }}>הוסף שנת לימודים</button></>;
-}
-
-function Backup() {
-  const store = useStore();
-  const { db } = store;
-  const [msg, setMsg] = useState('');
-  const stamp = new Date().toISOString().slice(0, 10);
-  const fullBackup = () => { download(`גיבוי-ניהול-הוראה-${stamp}.json`, JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), data: db }, null, 1), 'application/json'); setMsg('הגיבוי ירד למכשיר. שמור אותו במקום בטוח (הוא מכיל נתוני תלמידים).'); };
-  const csvAll = () => {
-    const name = (id: string) => { const s = db.students.find((x) => x.id === id); return s ? `${s.last_name} ${s.first_name}` : id; };
-    download(`ציונים-כל-הקבוצות-${stamp}.csv`, toCSV([['קבוצה', 'מחצית', 'תלמיד', 'אירוע', 'ניסיון', 'סטטוס', 'ציון'], ...db.grades.map((g) => { const e = db.assessment_events.find((x) => x.id === g.event_id); const gr = db.study_groups.find((x) => x.id === e?.group_id); return [gr?.name, e?.term === 1 ? 'א׳' : 'ב׳', name(g.student_id), e?.title, g.attempt, g.status, g.score]; })]));
-  };
-  const restore = async (f: File | undefined) => {
-    if (!f) return;
-    try {
-      const j = JSON.parse(await f.text()) as { data?: DB };
-      if (!j.data || !TABLES.every((t) => Array.isArray(j.data![t]) || j.data![t] === undefined)) throw new Error('קובץ לא תקין');
-      if (!store.repo.replaceAll) throw new Error('שחזור מקובץ זמין כרגע רק במצב מקומי');
-      if (!confirm('שחזור יחליף את כל הנתונים הנוכחיים בנתוני הגיבוי. להמשיך?')) return;
-      await store.repo.replaceAll(j.data); await store.reload(); setMsg('הנתונים שוחזרו.');
-    } catch (e) { setMsg(`שחזור נכשל: ${(e as Error).message}`); }
-  };
-  return <><h2>גיבויים ונתונים</h2>
-    <div className="row"><button className="btn primary" onClick={fullBackup}>גיבוי מלא (JSON)</button><button className="btn" onClick={csvAll}>ייצוא כל הציונים (CSV)</button>
-      {store.kind === 'local' && <label className="btn">שחזור מקובץ גיבוי<input type="file" accept=".json" hidden onChange={(e) => void restore(e.target.files?.[0])} /></label>}</div>
-    {msg && <p role="status">{msg}</p>}
-    <p className="muted">גיבויים אוטומטיים ושחזור מתוזמן יתווספו בהמשך. עד אז: הורד גיבוי ידני מדי שבוע, ושמור אותו במקום מאובטח. ייצוא לפי קבוצה זמין בכל לשונית (תלמידים, שיעורים, ציונים).</p></>;
 }
