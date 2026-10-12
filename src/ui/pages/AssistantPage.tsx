@@ -64,6 +64,7 @@ export function AssistantPage() {
   const [progress, setProgress] = useState<string | null>(null);
   const [regenBusy, setRegenBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const mountedAt = useRef(Date.now()); const scrolled = useRef(false);
   const busyRef = useRef(false);
 
   const conv = convs.find((c) => c.id === activeId) ?? null;
@@ -77,7 +78,7 @@ export function AssistantPage() {
     else if (!activeId && convs[0] && Date.now() - new Date(convs[0].updated_at).getTime() < 6 * 3600000) setActiveId(convs[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }); }, [messages.length, busy, activeId]);
+  useEffect(() => { const el = listRef.current; if (!el) return; const smooth = scrolled.current && document.documentElement.dataset.anim !== 'off'; scrolled.current = true; el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }); }, [messages.length, busy, activeId]);
   useEffect(() => {
     if (kind !== 'supabase') return;
     void aiStatus().then((s) => { if (isFail(s)) { if (s.error === 'not_deployed') setNotDeployed(true); return; } setUsage({ used: s.used, limit: s.limit }); if (s.blockedUntil) setBlockedUntil(s.blockedUntil); if (!s.configured) setErr({ message: 'העוזר עדיין לא הוגדר: חסר המפתח GEMINI_API_KEY ב-Supabase (ראה הוראות ההתקנה).' }); });
@@ -185,8 +186,8 @@ export function AssistantPage() {
             {!cloud && <p className="note-banner">מצב מקומי: שאלות עובדתיות על המערכת עובדות. יכולות ה-AI דורשות חיבור לענן (Supabase).</p>}
             {notDeployed && <p className="note-banner">פונקציית ה-AI עדיין לא הותקנה ב-Supabase. שאלות עובדתיות עובדות כבר עכשיו; להפעלת שאר היכולות ראה docs/SETUP.md סעיף ה׳.</p>}
           </div>)}
-        {messages.map((m, i) => <Bubble key={m.id} m={m} canContinue={i === messages.length - 1 && !busy} blocked={blocked} onContinue={() => void continueReply(m)} />)}
-        {busy && <div className="msg assistant"><div className="bubble typing" role="status">{progress ?? 'העוזר חושב…'}</div></div>}
+        {messages.map((m, i) => <Bubble key={m.id} fresh={Date.parse(m.created_at) >= mountedAt.current - 100} m={m} canContinue={i === messages.length - 1 && !busy} blocked={blocked} onContinue={() => void continueReply(m)} />)}
+        {busy && <div className="msg assistant fresh"><div className="bubble typing" role="status">{progress ?? 'העוזר חושב'}<span className="dots" aria-hidden><i>.</i><i>.</i><i>.</i></span></div></div>}
       </div>
       {err && <div className={blocked ? 'note-banner' : 'issue-banner'} role="alert">{err.message}<button className="icon-btn" aria-label="סגור" onClick={() => setErr(null)}><X size={14} /></button></div>}
       <form className="chat-input" onSubmit={(e) => { e.preventDefault(); void send(); }}>
@@ -202,7 +203,7 @@ export function AssistantPage() {
   );
 }
 
-function Bubble({ m, canContinue, blocked, onContinue }: { m: AiMessage; canContinue: boolean; blocked: boolean; onContinue: () => void }) {
+function Bubble({ m, fresh, canContinue, blocked, onContinue }: { m: AiMessage; fresh: boolean; canContinue: boolean; blocked: boolean; onContinue: () => void }) {
   const store = useStore();
   const alias = useMemo(() => makeAliasMap(store.db.students, m.conversation_id), [store.db.students, m.conversation_id]);
   const [copied, setCopied] = useState<'' | 'rich' | 'plain'>('');
@@ -210,9 +211,9 @@ function Bubble({ m, canContinue, blocked, onContinue }: { m: AiMessage; canCont
   const copy = async () => { try { setCopied(await copyRich(md())); setTimeout(() => setCopied(''), 2500); } catch { /* ignore */ } };
   const truncated = (m.blocks as Block[]).some((b) => b.type === 'truncated');
   const hasMath = /\$|\\\(|\\\[/.test(m.content);
-  if (m.role === 'user') return <div className="msg user"><div className="bubble" dir="auto">{m.content}</div></div>;
+  if (m.role === 'user') return <div className={`msg user${fresh ? ' fresh' : ''}`}><div className="bubble" dir="auto">{m.content}</div></div>;
   return (
-    <div className="msg assistant"><div className="bubble">
+    <div className={`msg assistant${fresh ? ' fresh' : ''}`}><div className="bubble">
       <Markdown text={m.content} />
       <MessageBlocks blocks={m.blocks} />
       <Sources sources={m.sources as string[]} />

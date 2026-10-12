@@ -258,3 +258,61 @@ math { font-size: 1.05em; }
 .note-banner.cut { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0 0; }
 .usage { line-height: 1.6; }
 .bubble-tools { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+
+/* ───── הנפשות ─────
+   data-anim: full (הכול) · minimal (פייד בלבד, בלי תזוזה) · off (כלום). מכשיר עם "הפחתת תנועה" מקבל off.
+   רק opacity ו-transform, קצר מרבע שנייה. */
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes riseIn { from { opacity: 0; transform: translateY(8px); } }
+@keyframes modalIn { from { opacity: 0; transform: scale(.96) translateY(6px); } }
+@keyframes msgIn { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes aiPop { 0% { transform: scale(1); } 45% { transform: scale(1.2) rotate(8deg); } 100% { transform: scale(1); } }
+@keyframes aiRing { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent), 0 4px 12px rgba(0,0,0,.25); } to { box-shadow: 0 0 0 16px transparent, 0 4px 12px rgba(0,0,0,.25); } }
+@keyframes sparkle { 0%, 100% { transform: rotate(0) scale(1); } 50% { transform: rotate(18deg) scale(1.15); } }
+@keyframes okFlash { from { background: color-mix(in srgb, #22a559 32%, transparent); } to { background: transparent; } }
+@keyframes dot { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+
+/* המחוון המחליק בסרגלי הניווט */
+.sidebar, .bottomnav { position: relative; }
+.bottomnav { position: fixed; }
+.nav-slider { position: absolute; left: 0; top: 0; width: var(--iw, 0); height: var(--ih, 0); transform: translate(var(--ix, 0), var(--iy, 0)); border-radius: 999px; background: color-mix(in srgb, currentColor 16%, transparent); pointer-events: none; z-index: 0; opacity: 1; }
+.slider-off > .nav-slider { opacity: 0; }
+.nav-item { position: relative; z-index: 1; }
+.sidebar .nav-item[aria-current='page'], .bottomnav .nav-item[aria-current='page'] { background: transparent; }
+html:not([data-anim='off']) .slider-ready > .nav-slider { transition: transform .26s cubic-bezier(.4, 0, .2, 1), width .26s cubic-bezier(.4, 0, .2, 1), height .26s, opacity .2s; }
+html[data-anim='minimal'] .slider-ready > .nav-slider { transition: opacity .2s; }
+html:not([data-anim='off']) .nav-item { transition: color .2s, font-weight .2s; }
+
+/* מעבר בין מסכים: כל מה שנוצר מחדש בתוך העמוד נכנס ברכות */
+html[data-anim='full'] .page > * { animation: riseIn .2s ease-out backwards; }
+html[data-anim='minimal'] .page > * { animation: fadeIn .18s ease-out backwards; }
+
+/* חלונות קופצים */
+html[data-anim='full'] .overlay { animation: fadeIn .18s ease-out; }
+html[data-anim='full'] .modal { animation: modalIn .22s cubic-bezier(.2, .8, .2, 1); }
+html[data-anim='minimal'] .overlay, html[data-anim='minimal'] .modal { animation: fadeIn .15s ease-out; }
+
+/* כפתור העוזר: קפיצה וטבעת כשנכנסים אליו */
+html[data-anim='full'] .bottomnav .nav-ai[aria-current='page'] svg { animation: aiPop .5s cubic-bezier(.3, 1.4, .5, 1), aiRing .8s ease-out; }
+html[data-anim='full'] .sidebar .nav-ai-side[aria-current='page'] svg { animation: sparkle .6s ease-in-out; }
+html[data-anim='full'] .bottomnav .nav-ai svg { transition: box-shadow .2s; }
+
+/* תחושת לחיצה והרמה (הרמה רק במכשיר עם עכבר) */
+html[data-anim='full'] :is(.btn, .chip, .icon-btn, .nav-item, .quick-btn, .theme-opt, .rowbtn) { transition: transform .12s ease-out, background-color .15s, border-color .15s, box-shadow .15s; }
+html[data-anim='full'] :is(.btn, .chip, .icon-btn, .nav-item, .quick-btn, .theme-opt, .rowbtn):active:not(:disabled) { transform: scale(.96); }
+html[data-anim='full'] .bottomnav .nav-ai:active svg { transform: scale(.92); }
+@media (hover: hover) {
+  html[data-anim='full'] :is(.grid > .card, .stat, .quick-btn, .theme-opt) { transition: transform .18s ease-out, box-shadow .18s ease-out; }
+  html[data-anim='full'] :is(.grid > .card, .stat, .quick-btn, .theme-opt):hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, .09); }
+}
+
+/* העוזר: הודעות נכנסות, נקודות "חושב" */
+html[data-anim='full'] .msg.fresh { animation: msgIn .28s cubic-bezier(.2, .8, .2, 1) backwards; }
+html[data-anim='minimal'] .msg.fresh { animation: fadeIn .2s ease-out backwards; }
+.dots i { font-style: normal; display: inline-block; }
+html:not([data-anim='off']) .dots i { animation: dot 1.2s infinite; }
+html:not([data-anim='off']) .dots i:nth-child(2) { animation-delay: .2s; }
+html:not([data-anim='off']) .dots i:nth-child(3) { animation-delay: .4s; }
+
+/* שמירת ציון: הבהוב ירוק עדין */
+html:not([data-anim='off']) .flash-ok { animation: okFlash .8s ease-out; }

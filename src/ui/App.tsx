@@ -7,6 +7,7 @@ import { applyTheme, type ThemeId } from './themes';
 import { NavCtx, type Page } from './nav';
 import type { AiContext } from '../data/types';
 import { boot, saveView } from './viewState';
+import { applyAnim, useNavSlider, type AnimMode } from './anim';
 import { AssistantPage } from './pages/AssistantPage';
 import { HomePage } from './pages/HomePage';
 import { GroupsPage } from './pages/GroupsPage';
@@ -45,6 +46,11 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
   const clearAiCtx = useCallback(() => setAiCtx(null), []);
   const nav = useMemo(() => ({ page, groupId, go, openAssistant, aiCtx, clearAiCtx }), [page, groupId, go, openAssistant, aiCtx, clearAiCtx]);
 
+  const dbAnim = db.user_settings[0]?.prefs?.anim as AnimMode | undefined;
+  useEffect(() => { if (dbAnim) applyAnim(dbAnim); }, [dbAnim]);
+  const sideRef = useRef<HTMLElement>(null), bottomRef = useRef<HTMLElement>(null);
+  useNavSlider(sideRef, ready ? page : '', false);
+  useNavSlider(bottomRef, ready ? page : '', page === 'assistant');
   const dbTheme = db.user_settings[0]?.theme as ThemeId | undefined;
   useEffect(() => { if (dbTheme) { applyTheme(dbTheme); try { localStorage.setItem('teacher-app:theme', dbTheme); } catch { /* ignore */ } } }, [dbTheme]);
 
@@ -101,13 +107,14 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
   return (
     <NavCtx.Provider value={nav}>
       <div className="app">
-        <nav className="sidebar" aria-label="ניווט ראשי">
+        <nav className="sidebar" aria-label="ניווט ראשי" ref={sideRef}>
+          <span className="nav-slider" aria-hidden />
           <div className="brand">
             <span className="brand-ic" aria-hidden><GraduationCap size={22} /></span>
             <span><strong>ניהול הוראה</strong><small>מערכת אישית למורה</small></span>
           </div>
           {NAV.map(({ id, label, Icon }) => (
-            <button key={id} className="nav-item" aria-current={page === id ? 'page' : undefined} onClick={() => (id === 'assistant' ? openAssistant() : go(id))}>
+            <button key={id} className={`nav-item${id === 'assistant' ? ' nav-ai-side' : ''}`} aria-current={page === id ? 'page' : undefined} onClick={() => (id === 'assistant' ? openAssistant() : go(id))}>
               <Icon size={20} aria-hidden /> {label}
             </button>
           ))}
@@ -116,8 +123,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
           <header className="topbar">
             <span className="status" role="status">{saving > 0 ? 'שומר…' : 'הכול נשמר'}</span>
             {kind === 'local' && <span className="pill" title="הנתונים נשמרים בדפדפן של המכשיר הזה בלבד. גבה אותם ב״הגדרות > גיבויים ונתונים״.">מצב מקומי</span>}
-            {userEmail && <span className="muted" dir="ltr">{userEmail}</span>}
-            {signOut && <button className="icon-btn" aria-label="התנתק" title="התנתק" onClick={signOut}><LogOut size={18} /></button>}
+            {signOut && <button className="icon-btn" aria-label="התנתק" title={userEmail ? `התנתק (${userEmail})` : 'התנתק'} onClick={signOut}><LogOut size={18} /></button>}
           </header>
           <main>
             <div className={`page${page === 'assistant' ? ' chatpage' : ''}`}>
@@ -132,7 +138,8 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
             </div>
           </main>
         </div>
-        <nav className="bottomnav" aria-label="ניווט תחתון">
+        <nav className="bottomnav" aria-label="ניווט תחתון" ref={bottomRef}>
+          <span className="nav-slider" aria-hidden />
           {BOTTOM.map(({ id, label, Icon }) => (
             <button key={id} className={`nav-item${id === 'assistant' ? ' nav-ai' : ''}`} aria-current={page === id ? 'page' : undefined} onClick={() => (id === 'assistant' ? openAssistant() : go(id))}>
               <Icon size={id === 'assistant' ? 24 : 22} aria-hidden /> {label}

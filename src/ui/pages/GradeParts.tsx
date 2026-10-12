@@ -3,6 +3,11 @@ import { useStore } from '../../data/store';
 import { cellText, gradeTone, parseCell } from '../../lib/gradebook';
 import type { StudyGroup } from '../../data/types';
 
+/** הבהוב ירוק עדין על תא שנשמר (CSS מפעיל אותו רק כשההנפשות פעילות) */
+function flash(el: HTMLElement | null) {
+  const t = el?.closest('td, .final') as HTMLElement | null; if (!t) return;
+  t.classList.remove('flash-ok'); void t.offsetWidth; t.classList.add('flash-ok'); setTimeout(() => t.classList.remove('flash-ok'), 900);
+}
 /** שמירת ציון בודד (אופטימית). מחזיר false אם הקלט לא חוקי. */
 export function useGradeActions() {
   const store = useStore();
@@ -22,7 +27,7 @@ export function GradeInput({ cur, onCommit, label, r, c, att, small }: {
   return (
     <input key={txt} className={[small ? 'small' : '', cur?.status === 'score' ? `g-${gradeTone(Number(cur.score))}` : ''].filter((x) => x && x !== 'g-').join(' ') || undefined} defaultValue={txt} aria-label={label} inputMode="decimal"
       data-r={r} data-c={c} data-att={att} placeholder={att === 2 ? 'ב׳' : undefined}
-      onBlur={(e) => { if (e.target.value !== txt && !onCommit(e.target.value)) e.target.value = txt; }}
+      onBlur={(e) => { if (e.target.value === txt) return; if (onCommit(e.target.value)) flash(e.target); else e.target.value = txt; }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && r !== undefined) {
           e.preventDefault(); (e.target as HTMLInputElement).blur();
@@ -44,9 +49,9 @@ export function FinalCell({ value, source, stale, onSet, onApprove, canApprove, 
         onBlur={(e) => {
           const t = e.target.value.trim();
           if (t === txt) return;
-          if (t === '') { onSet(null); return; }
+          if (t === '') { onSet(null); flash(e.target); return; }
           const n = Number(t.replace(',', '.'));
-          if (Number.isFinite(n) && n >= 0 && n <= 100) onSet(n); else e.target.value = txt;
+          if (Number.isFinite(n) && n >= 0 && n <= 100) { onSet(n); flash(e.target); } else e.target.value = txt;
         }}
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
       {canApprove && <button className="btn sm" aria-label={`אשר ${label}`} title="אשר את הציון המחושב כסופי" onClick={onApprove}>✓</button>}

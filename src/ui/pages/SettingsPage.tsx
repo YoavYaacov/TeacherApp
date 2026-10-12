@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CalendarDays, Database, Palette, SlidersHorizontal, Sparkles, UserCog, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { THEMES, applyTheme, type ThemeId } from '../themes';
+import { applyAnim, localAnim, systemReducesMotion, type AnimMode } from '../anim';
 import { defaultYear } from '../../lib/domain';
 import { fmtDate } from '../../lib/util';
 import type { AcademicYear } from '../../data/types';
@@ -53,7 +54,8 @@ function Appearance() {
     <div className="themes">{THEMES.map((t) => (
       <button key={t.id} className="theme-opt" aria-pressed={cur === t.id} onClick={() => pick(t.id)}>
         <div className="swatch" aria-hidden>{[t.bg, t.surface, t.sidebar, t.ink, t.accent].map((c) => <i key={c} style={{ background: c }} />)}</div>{t.name}</button>))}</div>
-    <p className="muted">הבחירה נשמרת במסד הנתונים ומסונכרנת בין מכשירים (במצב מקומי: במכשיר הזה).</p></>;
+    <p className="muted">הבחירה נשמרת במסד הנתונים ומסונכרנת בין מכשירים (במצב מקומי: במכשיר הזה).</p>
+    <AnimSetting /></>;
 }
 
 function General() {
@@ -71,4 +73,15 @@ function General() {
         <p className="muted">מחצית א׳: {fmtDate(y.term1_start)}–{fmtDate(y.term1_end)} · מחצית ב׳: {fmtDate(y.term2_start)}–{fmtDate(y.term2_end)}</p>
       </div>))}
     <button className="btn" disabled={adding} onClick={async () => { setAdding(true); await store.save('academic_years', [{ ...defaultYear(years.length ? new Date(new Date(years[years.length - 1].end_date).getTime() + 86400000 * 90) : new Date()), archived_at: null }]); setAdding(false); }}>הוסף שנת לימודים</button></>;
+}
+
+function AnimSetting() {
+  const store = useStore();
+  const cur = (store.db.user_settings[0]?.prefs?.anim as AnimMode | undefined) ?? localAnim();
+  const pick = (m: AnimMode) => { applyAnim(m); const u = store.db.user_settings[0]; store.saveFast('user_settings', [{ id: true, theme: u?.theme ?? 'sky-blue', prefs: { ...(u?.prefs ?? {}), anim: m } }]); };
+  const OPT: [AnimMode, string, string][] = [['full', 'מלאות', 'מעברים, תנועה ותגובה ללחיצה'], ['minimal', 'מינימליות', 'רק מעברי עדינות (בלי תזוזה)'], ['off', 'כבויות', 'הכול מיידי']];
+  return <><h2 style={{ marginTop: 24 }}>הנפשות</h2>
+    <div className="seg" role="group" aria-label="הנפשות">{OPT.map(([m, l]) => <button key={m} aria-pressed={cur === m} onClick={() => pick(m)}>{l}</button>)}</div>
+    <p className="muted">{OPT.find((o) => o[0] === cur)?.[2]}. ההנפשות קלות וקצרות (פחות מרבע שנייה) ולא משפיעות על מהירות העבודה.</p>
+    {systemReducesMotion() && <p className="note-banner">המכשיר מבקש הפחתת תנועה, ולכן ההנפשות כבויות כאן בלי קשר להגדרה.</p>}</>;
 }
