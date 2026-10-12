@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, Database, Palette, SlidersHorizontal, Sparkles, UserCog, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Database, Palette, SlidersHorizontal, Sparkles, Trash2, UserCog, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { THEMES, applyTheme, type ThemeId } from '../themes';
 import { applyAnim, localAnim, systemReducesMotion, type AnimMode } from '../anim';
@@ -71,6 +71,13 @@ function General() {
         <label className="field">שם<input key={y.name} className="input" defaultValue={y.name} onBlur={(e) => e.target.value !== y.name && store.patchFast('academic_years', y.id, { name: e.target.value })} /></label>
         <div className="form two">{fields.map(([k, l]) => <label key={k} className="field">{l}<input key={String(y[k])} className="input" type="date" defaultValue={String(y[k])} onBlur={(e) => e.target.value && e.target.value !== y[k] && store.patchFast('academic_years', y.id, { [k]: e.target.value })} /></label>)}</div>
         <p className="muted">מחצית א׳: {fmtDate(y.term1_start)}–{fmtDate(y.term1_end)} · מחצית ב׳: {fmtDate(y.term2_start)}–{fmtDate(y.term2_end)}</p>
+        {(() => {
+          const used = store.db.study_groups.filter((g) => g.academic_year_id === y.id).length;
+          return <div className="row">
+            <button className="btn danger" disabled={used > 0} onClick={async () => { if (confirm(`למחוק את שנת הלימודים "${y.name}"?`)) await store.del('academic_years', { id: y.id }); }}><Trash2 size={16} aria-hidden />מחק שנה</button>
+            {used > 0 && <span className="muted">לא ניתן למחוק: {used} קבוצות (כולל בארכיון) משויכות לשנה הזו.</span>}
+          </div>;
+        })()}
       </div>))}
     <button className="btn" disabled={adding} onClick={async () => { setAdding(true); await store.save('academic_years', [{ ...defaultYear(years.length ? new Date(new Date(years[years.length - 1].end_date).getTime() + 86400000 * 90) : new Date()), archived_at: null }]); setAdding(false); }}>הוסף שנת לימודים</button></>;
 }
