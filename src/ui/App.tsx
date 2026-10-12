@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, GraduationCap, Home, Settings as Cog, type LucideIcon } from 'lucide-react';
+import { CalendarDays, GraduationCap, Home, LogOut, Settings as Cog, type LucideIcon } from 'lucide-react';
 import { useStore } from '../data/store';
 import { applyTheme, type ThemeId } from './themes';
 import { NavCtx, type Page } from './nav';
@@ -31,24 +31,33 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
     <NavCtx.Provider value={nav}>
       <div className="app">
         <nav className="sidebar" aria-label="ניווט ראשי">
-          <div className="brand">ניהול הוראה</div>
+          <div className="brand">
+            <span className="brand-ic" aria-hidden><GraduationCap size={22} /></span>
+            <span><strong>ניהול הוראה</strong><small>מערכת אישית למורה</small></span>
+          </div>
           {NAV.map(({ id, label, Icon }) => (
             <button key={id} className="nav-item" aria-current={page === id ? 'page' : undefined} onClick={() => go(id)}>
               <Icon size={20} aria-hidden /> {label}
             </button>
           ))}
-          <div style={{ flex: 1 }} />
-          <div className="side-foot">{saving > 0 ? 'שומר…' : 'הכול נשמר'}{kind === 'local' ? ' · מצב מקומי' : ''}{userEmail ? <><br />{userEmail}</> : null}</div>
-          {signOut && <button className="nav-item" onClick={signOut}>התנתק</button>}
         </nav>
-        <main>
-          {kind === 'local' && <div className="demo-banner" role="note">מצב מקומי: הנתונים נשמרים בדפדפן של המכשיר הזה בלבד. גבה אותם מדי פעם ב״הגדרות &gt; גיבויים ונתונים״.</div>}
-          {error && <div className="issue-banner" role="alert">{error} <button className="btn sm" onClick={store.clearError}>סגור</button></div>}
-          {page === 'home' && <HomePage />}
-          {page === 'groups' && <GroupsPage />}
-          {page === 'calendar' && <CalendarPage />}
-          {page === 'settings' && <SettingsPage userEmail={userEmail} signOut={signOut} />}
-        </main>
+        <div className="shell">
+          <header className="topbar">
+            <span className="status" role="status">{saving > 0 ? 'שומר…' : 'הכול נשמר'}</span>
+            {kind === 'local' && <span className="pill" title="הנתונים נשמרים בדפדפן של המכשיר הזה בלבד. גבה אותם ב״הגדרות > גיבויים ונתונים״.">מצב מקומי</span>}
+            {userEmail && <span className="muted" dir="ltr">{userEmail}</span>}
+            {signOut && <button className="icon-btn" aria-label="התנתק" title="התנתק" onClick={signOut}><LogOut size={18} /></button>}
+          </header>
+          <main>
+            <div className="page">
+              {error && <div className="issue-banner" role="alert">{error} <button className="btn sm" onClick={store.clearError}>סגור</button></div>}
+              {page === 'home' && <HomePage />}
+              {page === 'groups' && <GroupsPage />}
+              {page === 'calendar' && <CalendarPage />}
+              {page === 'settings' && <SettingsPage userEmail={userEmail} signOut={signOut} />}
+            </div>
+          </main>
+        </div>
         <nav className="bottomnav" aria-label="ניווט תחתון">
           {NAV.map(({ id, label, Icon }) => (
             <button key={id} className="nav-item" aria-current={page === id ? 'page' : undefined} onClick={() => go(id)}>

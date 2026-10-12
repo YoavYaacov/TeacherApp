@@ -20,10 +20,9 @@ export function CalendarPage() {
   const name = (id: string | null) => store.db.study_groups.find((g) => g.id === id)?.name ?? 'שיעור';
   return (
     <>
-      <div className="row" style={{ justifyContent: 'space-between' }}><h1>יומן כללי</h1>
+      <div className="pagehead"><div><h1>יומן כללי</h1><p className="muted"><Cloud size={14} aria-hidden /> לוח שיעורים פנימי; סנכרון עם Google Calendar יתווסף בהמשך.</p></div>
         <button className="btn primary" disabled={groups.length === 0} onClick={() => setAdding(true)}><Plus size={16} aria-hidden />הוסף שיעור</button></div>
-      <p className="muted"><Cloud size={14} aria-hidden /> לוח שיעורים פנימי. סנכרון עם Google Calendar יתווסף בהמשך (הנתונים כבר שמורים במבנה שמאפשר זאת).</p>
-      <div className="row" style={{ marginBottom: 12 }}>
+      <div className="toolbar">
         <button className="btn sm" aria-label="שבוע קודם" onClick={() => shift(-1)}><ChevronRight size={16} /></button>
         <button className="btn sm" onClick={() => setWeek(startOfWeek(new Date()))}>השבוע</button>
         <button className="btn sm" aria-label="שבוע הבא" onClick={() => shift(1)}><ChevronLeft size={16} /></button>

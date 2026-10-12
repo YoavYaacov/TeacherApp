@@ -18,7 +18,7 @@ export function SettingsPage({ userEmail, signOut }: { userEmail: string | null;
   const [cat, setCat] = useState('general');
   return (
     <>
-      <h1>הגדרות</h1>
+      <div className="pagehead"><h1>הגדרות</h1></div>
       <div className="settings">
         <ul className="list" aria-label="קטגוריות הגדרות">{CATS.map(({ id, label, Icon }) => (
           <li key={id} style={{ padding: 0 }}><button className="nav-item catbtn" aria-current={cat === id ? 'true' : undefined} onClick={() => setCat(id)}><Icon size={18} aria-hidden />{label}</button></li>))}</ul>

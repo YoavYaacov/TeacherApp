@@ -88,9 +88,9 @@ export function LessonsTab({ group }: { group: StudyGroup }) {
   ]));
   return (
     <>
-      <div className="row" style={{ marginBottom: 12 }}>
+      <div className="toolbar"><span className="spacer" />
+        <button className="icon-btn" aria-label="ייצוא תיעוד" title="ייצוא תיעוד CSV" onClick={exportCsv}><Download size={18} /></button>
         <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden />הוסף שיעור</button>
-        <button className="btn" onClick={exportCsv}><Download size={16} aria-hidden />ייצוא תיעוד</button>
       </div>
       <div className="grid">
         <section className="card"><h2>שיעורים עתידיים</h2>
@@ -99,7 +99,7 @@ export function LessonsTab({ group }: { group: StudyGroup }) {
               <li key={l.id}><span>{fmtDay(l.start_at)} <span className="muted">{fmtTime(l.start_at)}–{fmtTime(l.end_at)}</span></span>
                 <button className="btn sm" aria-label="ניהול שיעור" onClick={() => setManage(l)}>ניהול</button></li>))}</ul>}
         </section>
-        <section className="card" style={{ gridColumn: 'span 2' }}><h2>שיעורים קודמים ותיעוד</h2>
+        <section className="card span2"><h2>שיעורים קודמים ותיעוד</h2>
           {past.length === 0 && <p className="muted">עדיין אין שיעורים קודמים</p>}
           {shown.map((l) => <LessonCard key={l.id} lesson={l} />)}
           {past.length > 3 && <button className="btn sm" onClick={() => setShowAll(!showAll)}>{showAll ? 'הצג פחות' : `הצג את כל ${past.length} השיעורים`}</button>}

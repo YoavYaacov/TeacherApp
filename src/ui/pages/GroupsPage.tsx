@@ -23,18 +23,22 @@ function GroupsList() {
   const list = store.db.study_groups.filter((g) => !!g.archived_at === showArchived).sort((a, b) => a.name.localeCompare(b.name, 'he'));
   return (
     <>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h1>קבוצות לימוד</h1>
-        <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden />קבוצה חדשה</button>
+      <div className="pagehead"><h1>קבוצות לימוד</h1>
+        <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden />קבוצה חדשה</button></div>
+      <div className="toolbar">
+        <div className="seg" role="group" aria-label="סינון">
+          <button aria-pressed={!showArchived} onClick={() => setShowArchived(false)}>פעילות</button>
+          <button aria-pressed={showArchived} onClick={() => setShowArchived(true)}>ארכיון</button>
+        </div>
       </div>
-      <div className="seg" role="group" aria-label="סינון" style={{ marginBottom: 12 }}>
-        <button aria-pressed={!showArchived} onClick={() => setShowArchived(false)}>פעילות</button>
-        <button aria-pressed={showArchived} onClick={() => setShowArchived(true)}>ארכיון</button>
+      <div className="card flush">
+        {list.length === 0 ? <p className="muted pad">{showArchived ? 'אין קבוצות בארכיון' : 'עדיין אין קבוצות. לחץ על ״קבוצה חדשה״.'}</p> :
+          <table className="dt"><thead><tr><th>שם הקבוצה</th><th>שכבה</th><th>תלמידים</th><th>סטטוס</th><th /></tr></thead>
+            <tbody>{list.map((g) => (
+              <tr key={g.id}><td><strong>{g.name}</strong></td><td>{g.grade_level ?? '—'}</td><td>{activeStudents(store.db, g.id).length}</td>
+                <td><span className={`badge ${g.archived_at ? '' : 'ok'}`}>{g.archived_at ? 'בארכיון' : 'פעילה'}</span></td>
+                <td className="actions"><button className="btn primary sm" onClick={() => go('groups', g.id)}>פתח</button></td></tr>))}</tbody></table>}
       </div>
-      {list.length === 0 && <p className="muted">{showArchived ? 'אין קבוצות בארכיון' : 'עדיין אין קבוצות. לחץ על ״קבוצה חדשה״.'}</p>}
-      <ul className="list">{list.map((g) => (
-        <li key={g.id}><span><strong>{g.name}</strong> <span className="muted">· {g.grade_level ?? ''} · {activeStudents(store.db, g.id).length} תלמידים</span></span>
-          <button className="btn" onClick={() => go('groups', g.id)}>פתח</button></li>))}</ul>
       {adding && <GroupForm onClose={() => setAdding(false)} onSaved={(g) => go('groups', g.id)} />}
     </>
   );
@@ -93,9 +97,9 @@ function GroupPage({ id }: { id: string }) {
   ];
   return (
     <>
-      <div className="row" style={{ marginBottom: 8 }}><button className="btn sm" onClick={() => go('groups')}>חזרה לקבוצות</button></div>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h1>{group.name} {group.archived_at && <span className="badge">בארכיון</span>}</h1>
+      <div className="pagehead">
+        <div><button className="linklike back" onClick={() => go('groups')}>← קבוצות לימוד</button>
+          <h1>{group.name} {group.archived_at && <span className="badge">בארכיון</span>}</h1></div>
         <button className="btn" onClick={() => setEditing(true)}><Pencil size={16} aria-hidden />עריכה</button>
       </div>
       <div className="tabs" role="tablist" aria-label="לשוניות קבוצה">

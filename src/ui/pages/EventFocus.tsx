@@ -7,7 +7,8 @@ import type { Student, StudyGroup } from '../../data/types';
 import { GradeInput, useGradeActions } from './GradeParts';
 
 export function EventFocus({ eventId, students, onClose }: { group: StudyGroup; eventId: string; students: Student[]; onClose: () => void }) {
-  const { db } = useStore();
+  const store = useStore();
+  const { db } = store;
   const commit = useGradeActions();
   const ev = db.assessment_events.find((e) => e.id === eventId)!;
   const [q, setQ] = useState('');
@@ -22,6 +23,12 @@ export function EventFocus({ eventId, students, onClose }: { group: StudyGroup; 
   });
   return (
     <Modal title={`הזנה מרוכזת: ${ev.title}`} onClose={onClose}>
+      <div className="row" style={{ marginBottom: 12 }}>
+        <span>כשיש שני מועדים, קובע:</span>
+        <span className="mini-seg big" role="group" aria-label="מדיניות מועד ב׳">
+          {([['best', 'הגבוה'], ['latest', 'האחרון'], ['average', 'ממוצע']] as const).map(([id, l]) => <button key={id} aria-pressed={ev.makeup_policy === id} onClick={() => store.patchFast('assessment_events', eventId, { makeup_policy: id })}>{l}</button>)}
+        </span>
+      </div>
       <div className="row" style={{ marginBottom: 8 }}>
         <input className="input" aria-label="חיפוש" placeholder="חיפוש תלמיד" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="input" aria-label="מיון" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>

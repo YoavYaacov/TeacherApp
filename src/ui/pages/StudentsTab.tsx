@@ -59,28 +59,33 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
 
   return (
     <>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <label className="row"><Search size={16} aria-hidden /><input className="input" aria-label="חיפוש תלמיד" placeholder="חיפוש" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+      <div className="toolbar">
+        <label className="search"><Search size={16} aria-hidden /><input aria-label="חיפוש תלמיד" placeholder="חיפוש לפי שם" value={q} onChange={(e) => setQ(e.target.value)} /></label>
         <select className="input" aria-label="סינון לפי כיתת אם" value={cls} onChange={(e) => setCls(e.target.value)}><option value="">כל הכיתות</option>{classes.map((c) => <option key={c}>{c}</option>)}</select>
         <select className="input" aria-label="מיון" value={sort} onChange={(e) => setSort(e.target.value as 'name' | 'class')}><option value="name">מיון: שם</option><option value="class">מיון: כיתת אם</option></select>
         <div className="seg" role="group" aria-label="תצוגה"><button aria-pressed={!archive} onClick={() => setArchive(false)}>פעילים</button><button aria-pressed={archive} onClick={() => setArchive(true)}>ארכיון</button></div>
+        <span className="spacer" />
+        {!archive && <>
+          <button className="btn" onClick={() => setModal('paste')}><ClipboardPaste size={16} aria-hidden />הדבק רשימה / ייבוא</button>
+          <button className="icon-btn" aria-label="ייצוא" title="ייצוא CSV" onClick={exportCsv}><Download size={18} /></button>
+          <button className="btn primary" onClick={() => setModal('add')}><UserPlus size={16} aria-hidden />הוסף תלמיד</button></>}
       </div>
-      {!archive && <div className="row" style={{ marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setModal('add')}><UserPlus size={16} aria-hidden />הוסף תלמיד</button>
-        <button className="btn" onClick={() => setModal('paste')}><ClipboardPaste size={16} aria-hidden />הדבק רשימה / ייבוא</button>
-        <button className="btn" onClick={exportCsv}><Download size={16} aria-hidden />ייצוא</button>
-      </div>}
-      {rows.length === 0 && <p className="muted">{archive ? 'אין תלמידים בארכיון' : 'אין תלמידים. הוסף תלמיד או הדבק רשימה.'}</p>}
-      <ul className="list">{rows.map(({ e, s }) => (
-        <li key={e.id}>
-          <button className="linklike" onClick={() => setModal({ card: s })}>{label(s)}</button>
-          <span className="row">
-            {s.home_class && <span className="badge">{s.home_class}</span>}
-            {archive && <span className="muted">נגרע {new Date(e.left_at!).toLocaleDateString('he-IL')}</span>}
-            {!archive && <><button className="btn sm" onClick={() => setModal({ move: s })}><ArrowLeftRight size={14} aria-hidden />העבר</button><button className="btn sm" onClick={() => remove(s.id)}><UserMinus size={14} aria-hidden />גרע</button></>}
-            {archive && <><button className="btn sm" onClick={() => restoreStudent(s)}><Undo2 size={14} aria-hidden />שחזר</button><button className="btn sm" onClick={() => setModal({ move: s })}><ArrowLeftRight size={14} aria-hidden />העבר</button></>}
-          </span>
-        </li>))}</ul>
+      <div className="card flush">
+        {rows.length === 0 ? <p className="muted pad">{archive ? 'אין תלמידים בארכיון' : 'אין תלמידים. הוסף תלמיד או הדבק רשימה.'}</p> :
+          <table className="dt"><thead><tr><th>שם</th><th>כיתת אם</th><th>{archive ? 'נגרע בתאריך' : 'הצטרף'}</th><th /></tr></thead>
+            <tbody>{rows.map(({ e, s }) => (
+              <tr key={e.id}>
+                <td><button className="linklike plain" onClick={() => setModal({ card: s })}>{label(s)}</button></td>
+                <td>{s.home_class ? <span className="badge">{s.home_class}</span> : '—'}</td>
+                <td className="muted">{new Date((archive ? e.left_at : e.joined_at)!).toLocaleDateString('he-IL')}</td>
+                <td className="actions">
+                  <button className="btn primary sm" onClick={() => setModal({ card: s })}>כרטיס</button>
+                  <button className="icon-btn" aria-label="העבר" title="העבר לקבוצה אחרת" onClick={() => setModal({ move: s })}><ArrowLeftRight size={16} /></button>
+                  {archive
+                    ? <button className="icon-btn" aria-label="שחזר" title="שחזר לקבוצה" onClick={() => restoreStudent(s)}><Undo2 size={16} /></button>
+                    : <button className="icon-btn" aria-label="גרע" title="גרע מהקבוצה" onClick={() => remove(s.id)}><UserMinus size={16} /></button>}
+                </td></tr>))}</tbody></table>}
+      </div>
       {modal === 'add' && <AddStudent group={group} onClose={() => setModal(null)} />}
       {modal === 'paste' && <PasteImport group={group} onClose={() => setModal(null)} />}
       {modal && typeof modal === 'object' && 'card' in modal && <StudentCard student={modal.card} onClose={() => setModal(null)} />}
