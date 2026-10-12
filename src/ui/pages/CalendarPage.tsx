@@ -4,7 +4,7 @@ import { useStore } from '../../data/store';
 import { useNav } from '../nav';
 import { fmtTime, iso } from '../../lib/util';
 import { AddLessonModal } from './LessonsTab';
-import { needsDoc } from '../../lib/lessons';
+import { googleLinked, needsDoc } from '../../lib/lessons';
 import { Modal } from '../Modal';
 import type { CalendarEvent, StudyGroup } from '../../data/types';
 
@@ -50,8 +50,8 @@ export function CalendarPage() {
   const [assign, setAssign] = useState<CalendarEvent | null>(null);
   return (
     <>
-      <div className="pagehead"><div><h1>יומן כללי</h1><p className="muted"><Cloud size={14} aria-hidden /> שיעורים פנימיים ואירועים מיובאים מ-Google Calendar (קריאה בלבד).</p></div>
-        <button className="btn primary" disabled={groups.length === 0} onClick={() => setAdding(true)}><Plus size={16} aria-hidden />הוסף שיעור</button></div>
+      <div className="pagehead"><div><h1>יומן כללי</h1><p className="muted"><Cloud size={14} aria-hidden /> {googleLinked(store.db) ? 'האירועים מיובאים מ-Google Calendar. יוצרים ומשנים אותם שם.' : 'לוח שיעורים פנימי. אפשר לחבר Google Calendar בהגדרות.'}</p></div>
+        {!googleLinked(store.db) && <button className="btn primary" disabled={groups.length === 0} onClick={() => setAdding(true)}><Plus size={16} aria-hidden />הוסף שיעור</button>}</div>
       <div className="toolbar">
         <button className="btn sm" aria-label="שבוע קודם" onClick={() => shift(-1)}><ChevronRight size={16} /></button>
         <button className="btn sm" onClick={() => setWeek(startOfWeek(new Date()))}>השבוע</button>

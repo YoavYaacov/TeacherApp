@@ -42,14 +42,15 @@ npm install && npm run build
 2. הדבק את כל התוכן של `supabase/migrations/0002_backup_restore.sql` ולחץ Run. אמור להופיע Success. הפעולה לא משנה נתונים קיימים.
 3. באפליקציה: הגדרות > גיבויים ונתונים. תופיע רשימת ״גיבויים במסד הנתונים״.
 
-## ד. חיבור Google Calendar (שלב 3א: ייבוא)
+## ד. חיבור Google Calendar (ייבוא חד-כיווני; Google הוא מקור האמת, האפליקציה לא כותבת ל-Google)
 1. Google Cloud Console: להפעיל Google Calendar API לפרויקט.
 2. OAuth client הקיים: להוסיף Authorized redirect URI: `https://<PROJECT_REF>.supabase.co/functions/v1/google-calendar`.
-3. OAuth consent screen > Data access: להוסיף scopes `calendar.events.readonly` ו-`calendar.calendarlist.readonly`; Publishing status: In production (בלי זה ההרשאה פגה אחרי 7 ימים).
+3. OAuth consent screen > Data access: להוסיף scopes `calendar.events.readonly` ו-`calendar.calendarlist.readonly`; Publishing status: In production. אם נשארים ב-Testing, ההרשאה פגה כל 7 ימים והאפליקציה תציג ״חבר מחדש״ (לחיצה אחת). Test users חייב לכלול את המייל שלך.
 4. Supabase > SQL Editor: להריץ `supabase/migrations/0003_google_calendar.sql`.
 5. Supabase > Edge Functions > Secrets: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `APP_URL` (כתובת האתר ב-Vercel).
 6. Supabase > Edge Functions > Deploy a new function > Via Editor, שם `google-calendar`, להדביק את `supabase/functions/google-calendar/index.ts`, ולהשבית Verify JWT (הקוד מאמת בעלים בעצמו).
-7. באפליקציה: הגדרות > יומן וסנכרון > חבר, ובחירת יומן.
+7. באפליקציה: הגדרות > יומן וסנכרון > חבר, ובחירת יומן. אחרי הייבוא הראשון, אם יש שיעורים פנימיים שקיימים גם ב-Google, יוצע איחוד (התיעוד עובר ל-Google, הכפילות נמחקת).
+8. בהתקנה מחדש של הפונקציה: להדביק שוב את `supabase/functions/google-calendar/index.ts` ב-Editor ול-Deploy (Verify JWT כבוי).
 
 ## פיתוח
 ```

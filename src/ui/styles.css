@@ -1,7 +1,7 @@
 /* עיצוב: מינימליסטי, מרווח, אחיד. צבעים מגיעים מערכת הנושא (themes.ts). */
 :root { --bg:#EAF5FF; --surface:#fff; --sidebar:#CFE8FC; --ink:#234C6B; --accent:#1684C2; --border:#C7E2F5;
   --sidebar-ink:#183A52; --on-accent:#031521; --muted:#4A6B84; --accent-text:#0F6A9E;
-  --warn:#8a5a00; --warn-bg:#fff1cf; --bad-bg:#fde8e8; --bad-ink:#9b1c1c; --ok-bg:#dcf5e3; --ok-ink:#14532d;
+  --warn:#8a5a00; --warn-bg:#fff1cf; --bad-bg:#fde8e8; --bad-ink:#9b1c1c; --ok-bg:#dcf5e3; --ok-ink:#14532d; --star-bg:#3ddc84; --star-ink:#052e16; --star-text:#087a32;
   --tint: color-mix(in srgb, var(--accent) 10%, var(--surface)); --r:18px; }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -165,3 +165,9 @@ table.gb { border-collapse: separate; border-spacing: 0; width: max-content; min
 
 .bk-sec { margin: 0 0 24px; } .bk-sec h3 { margin: 0 0 6px; font-size: 16px; } .bk-msg { margin: 0 0 16px; }
 .note-banner { background: var(--tint); color: var(--ink); padding: 12px 16px; border-radius: 14px; margin-bottom: 20px; }
+
+/* צבעי ציונים: נכשל (<56) אדום, מצטיין (90+) ירוק בוהק; השאר כרגיל */
+.gb input.g-fail, .gb td.calc.fail { color: var(--bad-ink); font-weight: 700; }
+.gb input.g-star, .gb td.calc.star { color: var(--star-text); font-weight: 700; }
+.final.ok.fail { background: var(--bad-bg); } .final.ok.fail input { color: var(--bad-ink); }
+.final.ok.star { background: var(--star-bg); } .final.ok.star input { color: var(--star-ink); }

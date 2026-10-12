@@ -9,6 +9,8 @@ class Q {
   in(k, v) { this.f.push((r) => v.includes(r[k])); return this; }
   is(k, v) { this.f.push((r) => (r[k] ?? null) === v); return this; }
   lt(k, v) { this.f.push((r) => r[k] < v); return this; }
+  gte(k, v) { this.f.push((r) => r[k] >= v); return this; }
+  lte(k, v) { this.f.push((r) => r[k] <= v); return this; }
   limit() { return this; }
   insert(rows) { this.mode = 'insert'; this.rows = [].concat(rows); return this; }
   upsert(rows, o = {}) { this.mode = 'upsert'; this.rows = [].concat(rows); this.keys = (o.onConflict ?? 'id').split(','); return this; }

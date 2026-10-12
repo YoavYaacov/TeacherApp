@@ -42,7 +42,12 @@ async function accessToken(): Promise<string> {
 async function g(path: string, token: string, params: Record<string, string> = {}) {
   const url = new URL(`https://www.googleapis.com/calendar/v3/${path}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  let r!: Response;
+  for (let i = 0; i < 3; i++) { // ניסיון חוזר על שגיאות זמניות (429/5xx/רשת)
+    try { r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } }); } catch (e) { if (i === 2) throw e; await new Promise((s) => setTimeout(s, 500 * 2 ** i)); continue; }
+    if (r.status === 429 || r.status >= 500) { if (i < 2) { await new Promise((s) => setTimeout(s, 500 * 2 ** i)); continue; } }
+    break;
+  }
   if (r.status === 401) throw new ReauthError('unauthorized');
   return r;
 }
@@ -69,6 +74,9 @@ async function sync(): Promise<Record<string, unknown>> {
     const token = await accessToken();
     const staleFull = !st.full_synced_at || Date.now() - new Date(st.full_synced_at).getTime() > 120 * 86400000;
     let useToken: string | null = staleFull ? null : st.sync_token;
+    // חלון סנכרון מלא: מתחילת שנת הלימודים (1.8) ועד שנה קדימה
+    const now = new Date(); const ay = now.getUTCMonth() >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+    const windowMin = new Date(Date.UTC(ay, 7, 1)).toISOString(); const windowMax = new Date(Date.now() + 365 * 86400000).toISOString();
     const items = new Map<string, GEvent>();
     let nextSyncToken: string | null = null, full = !useToken;
 
@@ -78,7 +86,7 @@ async function sync(): Promise<Record<string, unknown>> {
       do {
         const params: Record<string, string> = { singleEvents: 'true', showDeleted: 'true', maxResults: '250' };
         if (useToken) params.syncToken = useToken;
-        else { params.timeMin = new Date(Date.now() - 120 * 86400000).toISOString(); params.timeMax = new Date(Date.now() + 365 * 86400000).toISOString(); }
+        else { params.timeMin = windowMin; params.timeMax = windowMax; }
         if (pageToken) params.pageToken = pageToken;
         const r = await g(`calendars/${encodeURIComponent(calId)}/events`, token, params);
         if (r.status === 410) { gone = true; break; }
@@ -118,15 +126,23 @@ async function sync(): Promise<Record<string, unknown>> {
         start_at: allDay ? zonedMidnight(e.start.date!, tz) : new Date(e.start.dateTime!).toISOString(),
         end_at: allDay ? zonedMidnight(e.end.date!, tz) : new Date(e.end.dateTime!).toISOString(),
       };
-      if (ex) { if (!ex.local_dirty) toUpdate.push({ ...row, id: ex.id, group_id: ex.group_id }); else skipped++; } // שינוי מקומי שלא נדחף לא נדרס
+      if (ex) { if (!ex.local_dirty) toUpdate.push({ ...row, id: ex.id, group_id: ex.group_id ?? guess(row.title) }); else skipped++; } // שינוי מקומי שלא נדחף לא נדרס
       else toInsert.push({ ...row, group_id: guess(row.title) });
     }
     for (const part of chunk(toInsert, 200)) { const { error } = await admin.from('calendar_events').upsert(part, { onConflict: 'google_calendar_id,google_event_id' }); if (error) throw new Error(error.message); }
     for (const part of chunk(toUpdate, 200)) { const { error } = await admin.from('calendar_events').upsert(part, { onConflict: 'id' }); if (error) throw new Error(error.message); }
     for (const part of chunk(cancelIds, 80)) { const { error } = await admin.from('calendar_events').update({ status: 'cancelled' }).eq('google_calendar_id', calId).in('google_event_id', part); if (error) throw new Error(error.message); }
 
+    // סנכרון מלא: אירוע שנעלם מ-Google בלי הודעת ביטול (למשל נמחק בזמן שהטוקן פג) מסומן כמבוטל. התיעוד נשמר.
+    let vanished = 0;
+    if (full) {
+      const { data: live } = await admin.from('calendar_events').select('google_event_id').eq('google_calendar_id', calId).eq('status', 'confirmed').gte('start_at', windowMin).lte('start_at', windowMax);
+      const gone = (live ?? []).map((r) => r.google_event_id as string).filter((id) => id && !items.has(id));
+      for (const part of chunk(gone, 80)) { const { error } = await admin.from('calendar_events').update({ status: 'cancelled' }).eq('google_calendar_id', calId).in('google_event_id', part); if (error) throw new Error(error.message); }
+      vanished = gone.length;
+    }
     // הטוקן נשמר רק אחרי שכל הכתיבות הצליחו
-    const counts = { created: toInsert.length, updated: toUpdate.length, cancelled: cancelIds.length, skipped, full };
+    const counts = { created: toInsert.length, updated: toUpdate.length, cancelled: cancelIds.length + vanished, skipped, full };
     await admin.from('calendar_sync_state').update({ sync_token: nextSyncToken, last_synced_at: new Date().toISOString(), last_error: null, last_counts: counts, ...(full ? { full_synced_at: new Date().toISOString() } : {}) }).eq('google_calendar_id', calId);
     return { ok: true, ...counts };
   } catch (e) {

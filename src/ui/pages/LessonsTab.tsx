@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Download, Plus, Trash2, XCircle } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { Modal } from '../Modal';
-import { createLessons, logOf } from '../../lib/lessons';
+import { createLessons, googleLinked, logOf } from '../../lib/lessons';
 import { download, fmtDay, fmtDate, fmtTime, iso, toCSV } from '../../lib/util';
 import type { CalendarEvent, LessonLog, StudyGroup } from '../../data/types';
 
@@ -39,6 +39,7 @@ function LessonCard({ lesson }: { lesson: CalendarEvent }) {
   const timer = useRef<number | undefined>(undefined);
   const latest = useRef(f); latest.current = f;
   const completion = log?.completion ?? 'pending';
+  const hasContent = !!(log && (log.topic || log.learned || log.homework || log.private_note));
   const persist = (patch: Partial<LessonLog> = {}) => {
     window.clearTimeout(timer.current);
     store.saveFast('lesson_logs', [{ calendar_event_id: lesson.id, ...latest.current, completion, ...patch }]);
@@ -54,14 +55,14 @@ function LessonCard({ lesson }: { lesson: CalendarEvent }) {
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <strong>{fmtDay(lesson.start_at)} · {fmtTime(lesson.start_at)}</strong>
         <span className="row">
-          {lesson.status === 'cancelled' ? <span className="badge">בוטל</span>
+          {lesson.status === 'cancelled' ? <span className="badge">{lesson.source === 'google' ? 'בוטל ב-Google' : 'בוטל'}</span>
             : <span className="mini-seg big" role="group" aria-label="סטטוס תיעוד">
               {([['pending', 'ממתין'], ['done', 'מתועד'], ['not_needed', 'אין צורך']] as const).map(([id, l]) =>
                 <button key={id} aria-pressed={completion === id} onClick={() => persist({ completion: id })}>{l}</button>)}
             </span>}
         </span>
       </div>
-      {lesson.status !== 'cancelled' && (<>
+      {(lesson.status !== 'cancelled' || hasContent) && (<>
         <div className="form two">{field('topic', 'נושא')}{field('learned', 'מה נלמד')}{field('homework', 'שיעורי בית')}{field('private_note', 'הערה פרטית (לא מוצגת בייצוא)')}</div>
       </>)}
     </div>
@@ -86,14 +87,14 @@ export function LessonsTab({ group }: { group: StudyGroup }) {
     <>
       <div className="toolbar"><span className="spacer" />
         <button className="icon-btn" aria-label="ייצוא תיעוד" title="ייצוא תיעוד CSV" onClick={exportCsv}><Download size={18} /></button>
-        <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden />הוסף שיעור</button>
+        {!googleLinked(store.db) && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} aria-hidden />הוסף שיעור</button>}
       </div>
       <div className="grid">
         <section className="card"><h2>שיעורים עתידיים</h2>
           {future.length === 0 ? <p className="muted">אין שיעורים עתידיים</p> :
             <ul className="list">{future.map((l) => (
               <li key={l.id}><span>{fmtDay(l.start_at)} <span className="muted">{fmtTime(l.start_at)}–{fmtTime(l.end_at)}</span></span>
-                <button className="btn sm" aria-label="ניהול שיעור" onClick={() => setManage(l)}>ניהול</button></li>))}</ul>}
+                {l.source === 'google' ? <span className="muted">נערך ב-Google</span> : <button className="btn sm" aria-label="ניהול שיעור" onClick={() => setManage(l)}>ניהול</button>}</li>))}</ul>}
         </section>
         <section className="card span2"><h2>שיעורים קודמים ותיעוד</h2>
           {past.length === 0 && <p className="muted">עדיין אין שיעורים קודמים</p>}

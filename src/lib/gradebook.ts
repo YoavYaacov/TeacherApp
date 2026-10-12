@@ -39,3 +39,8 @@ export function parseCell(txt: string): { status: 'score' | 'exempt' | 'absent';
   const n = Number(t.replace(',', '.'));
   return Number.isFinite(n) && n >= 0 && n <= 100 ? { status: 'score', score: n } : null;
 }
+
+/** ספי צבע לציונים: נכשל מתחת ל-56, מצטיין מ-90 ומעלה. */
+export const PASS_MIN = 56;
+export const STAR_MIN = 90;
+export const gradeTone = (v: number | null | undefined): 'fail' | 'star' | '' => (v === null || v === undefined || !Number.isFinite(v) ? '' : v < PASS_MIN ? 'fail' : v >= STAR_MIN ? 'star' : '');

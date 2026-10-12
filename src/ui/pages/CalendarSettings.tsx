@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useStore } from '../../data/store';
+import { findDuplicates, mergePair } from '../../lib/dedupe';
 import { errText, gcal, type GCalendar, type GStatus, type SyncResult } from '../../lib/google';
 
 const when = (s: string) => new Date(s).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
@@ -51,12 +52,20 @@ export function CalendarSettings() {
     setBusy(true); await gcal('disconnect'); setCals(null); await load(); setBusy(false);
   };
 
+  const dups = findDuplicates(store.db);
+  const mergeable = dups.filter((d) => !d.conflict);
+  const mergeAll = async () => {
+    if (!confirm(`לאחד ${mergeable.length} שיעורים פנימיים עם האירועים המקבילים ב-Google?\nהתיעוד עובר לאירוע ב-Google, והשיעור הפנימי הכפול נמחק.`)) return;
+    setBusy(true); setMsg('');
+    try { for (const d of mergeable) await mergePair(store, d); setMsg(`אוחדו ${mergeable.length} שיעורים.`); } catch (e) { setMsg(`האיחוד נעצר: ${(e as Error).message}`); }
+    setBusy(false);
+  };
   const needReauth = st.lastError === 'reauth_required';
   const imported = store.db.calendar_events.filter((e) => e.source === 'google').length;
   return <>
     <h2>יומן וסנכרון</h2>
     {st.error ? <p className="issue" role="alert">{errText(st.error)}{st.error === 'not_deployed' && ' (ראה docs/SETUP.md סעיף ד׳)'}</p> : <>
-      <p className="muted">ייבוא אירועים מיומן Google ייעודי (קריאה בלבד בשלב זה: האפליקציה לא משנה דבר ב-Google). השיעורים הפנימיים הקיימים נשמרים כמות שהם.</p>
+      <p className="muted">Google Calendar הוא מקור האמת למערכת השעות: יוצרים, משנים ומבטלים אירועים שם, והאפליקציה מייבאת ומציגה אותם (קריאה בלבד, לעולם לא משנה דבר ב-Google). שיוך לקבוצות ותיעוד שיעורים נשמרים באפליקציה גם כשהאירוע מתעדכן. הייבוא מתרענן בכניסה, כל 15 דקות כשהאפליקציה פתוחה, ובלחיצה על ״ייבא עכשיו״.</p>
       {(!st.connected || needReauth) && <div className="row"><button className="btn primary" disabled={busy} onClick={connect}>{needReauth ? 'חבר מחדש את Google' : 'חבר את Google Calendar'}</button></div>}
       {st.connected && !needReauth && !st.calendar && <div className="bk-sec">
         <h3>בחירת יומן</h3>
@@ -67,11 +76,15 @@ export function CalendarSettings() {
       </div>}
       {st.connected && st.calendar && <div className="bk-sec">
         <p>יומן מחובר: <strong>{st.calendar.name}</strong> · {imported} אירועים מיובאים</p>
-        <p className="muted">{st.lastSyncedAt ? `סנכרון אחרון: ${when(st.lastSyncedAt)}` : 'עדיין לא בוצע ייבוא'}{st.lastError && !needReauth ? ` · שגיאה אחרונה: ${st.lastError}` : ''}. הייבוא רץ אוטומטית בפתיחת האפליקציה.</p>
+        <p className="muted">{st.lastSyncedAt ? `סנכרון אחרון: ${when(st.lastSyncedAt)}` : 'עדיין לא בוצע ייבוא'}{st.lastError && !needReauth ? ` · שגיאה אחרונה: ${st.lastError}` : ''}. </p>
         <div className="row">
           <button className="btn primary" disabled={busy} onClick={runSync}><RefreshCw size={16} aria-hidden />ייבא עכשיו</button>
           <button className="btn" disabled={busy} onClick={() => setSt({ ...st, calendar: null })}>החלף יומן</button>
           <button className="btn" disabled={busy} onClick={disconnect}>נתק</button></div>
+        {dups.length > 0 && <div style={{ marginTop: 16 }}>
+          <p><strong>{dups.length}</strong> שיעורים פנימיים קיימים גם ב-Google (אותה שעה ואותה קבוצה). כדי למנוע כפילויות אפשר לאחד אותם: התיעוד נשמר ועובר לאירוע ב-Google.{dups.length > mergeable.length && ` ${dups.length - mergeable.length} מהם לא יאוחדו כי בשני האירועים יש תיעוד; אותם יש להכריע ידנית.`}</p>
+          <button className="btn" disabled={busy || mergeable.length === 0} onClick={mergeAll}>אחד {mergeable.length} שיעורים</button>
+        </div>}
       </div>}
     </>}
     {msg && <p role="status" className="bk-msg">{msg}</p>}

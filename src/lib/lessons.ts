@@ -14,6 +14,9 @@ export async function createLessons(store: Store, groupId: string, title: string
   return rows.length;
 }
 
+/** יש יומן Google מחובר (קיימים אירועים מיובאים): Google הוא מקור האמת למערכת השעות. */
+export const googleLinked = (db: { calendar_events: { source: string }[] }) => db.calendar_events.some((e) => e.source === 'google');
+
 export function logOf(store: Store, id: string) {
   return store.db.lesson_logs.find((l) => l.calendar_event_id === id);
 }

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useStore } from '../../data/store';
-import { cellText, parseCell } from '../../lib/gradebook';
+import { cellText, gradeTone, parseCell } from '../../lib/gradebook';
 import type { StudyGroup } from '../../data/types';
 
 /** שמירת ציון בודד (אופטימית). מחזיר false אם הקלט לא חוקי. */
@@ -20,7 +20,7 @@ export function GradeInput({ cur, onCommit, label, r, c, att, small }: {
 }) {
   const txt = cellText(cur);
   return (
-    <input key={txt} className={small ? 'small' : undefined} defaultValue={txt} aria-label={label} inputMode="decimal"
+    <input key={txt} className={[small ? 'small' : '', cur?.status === 'score' ? `g-${gradeTone(Number(cur.score))}` : ''].filter((x) => x && x !== 'g-').join(' ') || undefined} defaultValue={txt} aria-label={label} inputMode="decimal"
       data-r={r} data-c={c} data-att={att} placeholder={att === 2 ? 'ב׳' : undefined}
       onBlur={(e) => { if (e.target.value !== txt && !onCommit(e.target.value)) e.target.value = txt; }}
       onKeyDown={(e) => {
@@ -39,7 +39,7 @@ export function FinalCell({ value, source, stale, onSet, onApprove, canApprove, 
 }) {
   const txt = value === null ? '' : String(value);
   return (
-    <div className={`final${value !== null ? ' ok' : ''}${stale ? ' stale' : ''}`} title={stale ? 'המקור השתנה מאז האישור. לחץ ✓ לאישור מחדש' : source === 'override' ? 'ציון ידני' : undefined}>
+    <div className={`final${value !== null ? ' ok' : ''}${value !== null && gradeTone(value) ? ` ${gradeTone(value)}` : ''}${stale ? ' stale' : ''}`} title={stale ? 'המקור השתנה מאז האישור. לחץ ✓ לאישור מחדש' : source === 'override' ? 'ציון ידני' : undefined}>
       <input key={`${txt}-${source}`} defaultValue={txt} aria-label={label} inputMode="decimal"
         onBlur={(e) => {
           const t = e.target.value.trim();

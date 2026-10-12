@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, GraduationCap, Home, LogOut, Settings as Cog, type LucideIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { gcal, type SyncResult } from '../lib/google';
@@ -45,12 +45,30 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
     void supabase.rpc('create_data_backup', { p_kind: 'auto', p_note: null }).then(() => undefined, () => undefined);
   }, [ready, kind]);
 
-  // ייבוא אוטומטי מ-Google Calendar בפתיחה (לכל היותר אחת ל-5 דקות). כשל שקט; מצב הסנכרון מוצג בהגדרות.
+  // ייבוא אוטומטי מ-Google Calendar: בפתיחה, כשחוזרים ללשונית, ובמרווח של 15 דקות כשהאפליקציה פתוחה.
+  // לכל היותר פעם ב-5 דקות; נעצר לאחר "אין יומן"/"נדרש חיבור מחדש". כשל שקט.
+  const [gReauth, setGReauth] = useState(false);
+  const gStop = useRef(false);
+  const gBusy = useRef(false);
+  const reloadRef = useRef(store.reload); reloadRef.current = store.reload;
   useEffect(() => {
     if (!ready || kind !== 'supabase' || !supabase) return;
-    try { const last = Number(sessionStorage.getItem('teacher-app:last-gsync') ?? 0); if (Date.now() - last < 300000) return; sessionStorage.setItem('teacher-app:last-gsync', String(Date.now())); } catch { /* ignore */ }
-    void gcal<SyncResult>('sync').then((r) => { if (r.ok && ((r.created ?? 0) + (r.updated ?? 0) + (r.cancelled ?? 0)) > 0) void store.reload(); }, () => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const run = async () => {
+      if (gStop.current || gBusy.current || document.hidden) return;
+      try { const last = Number(sessionStorage.getItem('teacher-app:last-gsync') ?? 0); if (Date.now() - last < 300000) return; sessionStorage.setItem('teacher-app:last-gsync', String(Date.now())); } catch { /* ignore */ }
+      gBusy.current = true;
+      try {
+        const r = await gcal<SyncResult>('sync');
+        if (r.error === 'no_calendar' || r.error === 'not_deployed' || r.error === 'forbidden') gStop.current = true;
+        else if (r.error === 'reauth_required') { gStop.current = true; setGReauth(true); }
+        else if (r.ok && ((r.created ?? 0) + (r.updated ?? 0) + (r.cancelled ?? 0)) > 0) await reloadRef.current();
+      } catch { /* שקט */ } finally { gBusy.current = false; }
+    };
+    void run();
+    const iv = window.setInterval(() => void run(), 900000);
+    const vis = () => { if (!document.hidden) void run(); };
+    document.addEventListener('visibilitychange', vis);
+    return () => { window.clearInterval(iv); document.removeEventListener('visibilitychange', vis); };
   }, [ready, kind]);
 
   if (!ready) return <div className="center-screen">טוען נתונים…</div>;
@@ -77,6 +95,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
           </header>
           <main>
             <div className="page">
+              {gReauth && page !== 'settings' && <div className="note-banner" role="status">החיבור ל-Google Calendar פג ולכן אירועים חדשים לא מיובאים. <button className="btn sm" onClick={() => { try { sessionStorage.setItem('teacher-app:open', 'calendar'); } catch { /* ignore */ } go('settings'); }}>חבר מחדש</button></div>}
               {error && <div className="issue-banner" role="alert">{error} <button className="btn sm" onClick={store.clearError}>סגור</button></div>}
               {page === 'home' && <HomePage />}
               {page === 'groups' && <GroupsPage />}

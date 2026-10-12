@@ -6,6 +6,7 @@ import { Modal } from '../Modal';
 import { TABLES, type DB } from '../../data/types';
 import { TABLE_LABEL, buildEnvelope, countsOf, parseBackupFile, type ParsedBackup } from '../../lib/backup';
 import { download, toCSV } from '../../lib/util';
+import { AuditPanel } from './AuditPanel';
 
 type Counts = Record<string, number>;
 interface BackupRow { id: string; created_at: string; kind: 'auto' | 'manual' | 'pre_restore'; note: string | null; counts: Counts; bytes: number }
@@ -114,6 +115,7 @@ export function BackupPanel() {
               <td className="actions"><button className="btn sm" onClick={() => setRestoring({ type: 'backup', row: r })}><RotateCcw size={14} aria-hidden />שחזר</button>
                 <button className="icon-btn" aria-label="מחק גיבוי" title="מחק גיבוי" onClick={() => remove(r)}><Trash2 size={16} /></button></td></tr>))}</tbody></table></div>)}
     </div>}
+    <AuditPanel />
     {restoring && <RestoreModal source={restoring} cloud={cloud} onClose={() => setRestoring(null)} onDone={(m) => { setMsg(m); void refresh(); }} />}
   </>;
 }

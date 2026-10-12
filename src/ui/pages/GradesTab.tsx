@@ -1,9 +1,10 @@
+import { exportXlsx } from '../../lib/export';
 import { SortTh, sortRows, useSort } from '../sort';
 import { useMemo, useState } from 'react';
-import { CheckCheck, Download, Settings2 } from 'lucide-react';
+import { CheckCheck, Download, FileSpreadsheet, Settings2 } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { activeStudents, activeTerm, groupYear, label } from '../../lib/domain';
-import { storedFinal, studentGrades, termConfig } from '../../lib/gradebook';
+import { gradeTone, storedFinal, studentGrades, termConfig } from '../../lib/gradebook';
 import { approveCalculated, computeAnnual, computeTerm, finalStatus, roundHalfUp, validateTermConfig } from '../../engine/grades';
 import { download, hebSort, toCSV } from '../../lib/util';
 import type { StudyGroup, Student } from '../../data/types';
@@ -91,12 +92,14 @@ function TermGrid({ group, term }: { group: StudyGroup; term: 1 | 2 }) {
       <div className="toolbar">
         <button className="btn" onClick={() => setConfig(true)}><Settings2 size={16} aria-hidden />הגדרות הערכה</button>
         <button className="btn" disabled={approvable.length === 0} onClick={approveAll}><CheckCheck size={16} aria-hidden />אשר את כל המלאים ({approvable.length})</button>
+        <span className="spacer" />
+        <button className="icon-btn" aria-label="ייצוא Excel" title="ייצוא Excel (כל המחציות והשנתי)" onClick={() => exportXlsx(db, group)}><FileSpreadsheet size={18} /></button>
         <button className="icon-btn" aria-label="ייצוא CSV" title="ייצוא CSV" onClick={exportCsv}><Download size={18} /></button>
       </div>
       {issues.map((i, k) => <p key={k} className="issue" role="alert">{i.message}</p>)}
       {cfg.categories.length === 0 && <div className="card"><p>עדיין לא הוגדרו קטגוריות הערכה למחצית הזו. פתח ״הגדרות הערכה״ כדי להגדיר קטגוריות (מבחנים, בוחנים…) ואירועי הערכה.</p></div>}
       {cfg.categories.length > 0 && <>
-        <p className="muted">הזנה: מספר 0–100, ״פ״ = פטור, ״ל״ = לא נבחן, ריק = לא הוזן. אפשר להדביק טווח מ-Excel. לחיצה על שם אירוע: הזנה מרוכזת, מועד ב׳ ומדיניות. אדום = חישוב חלקי, ירוק = ציון סופי מאושר.</p>
+        <p className="muted">הזנה: מספר 0–100, ״פ״ = פטור, ״ל״ = לא נבחן, ריק = לא הוזן. אפשר להדביק טווח מ-Excel. לחיצה על שם אירוע: הזנה מרוכזת, מועד ב׳ ומדיניות. ציון מתחת ל-56 באדום, מ-90 ומעלה בירוק בוהק. רקע אדום בממוצע = חישוב חלקי. רקע ירוק בסופי = ציון מאושר.</p>
         <div className="gridwrap card flush"><table className="gb" onPaste={onPaste}>
           <thead><tr><SortTh k="name" sort={sort} className="name">תלמיד</SortTh><SortTh k="class" sort={sort}>כיתה</SortTh>
             {eventRows.map((x) => (
@@ -122,7 +125,7 @@ function TermGrid({ group, term }: { group: StudyGroup; term: 1 | 2 }) {
                           onClick={() => setOvr({ sid: s.id, eid: x.e.id })}>{POLICY.find((q) => q.id === effPolicy)?.label}{gb.policyOverride ? ' •' : ''}</button>)}
                     </td>);
                 })}
-                <td className={`calc${r.partial && r.calculated !== null ? ' bad' : ''}`} title={r.partial && r.calculated !== null ? 'חישוב חלקי: חסרים ציונים' : undefined}>{r.calculatedRounded ?? '—'}</td>
+                <td className={`calc${r.partial && r.calculated !== null ? ' bad' : r.calculatedRounded !== null ? ` ${gradeTone(r.calculatedRounded)}` : ''}`} title={r.partial && r.calculated !== null ? 'חישוב חלקי: חסרים ציונים' : undefined}>{r.calculatedRounded ?? '—'}</td>
                 <td><FinalCell label={`סופי ${label(s)}`} value={fin.value} source={fin.source} stale={fin.stale}
                   onSet={(v) => setFinal(s.id, v, r.calculated)} onApprove={() => approve(s.id, r.calculated as number)}
                   canApprove={r.calculated !== null && (fin.value === null || fin.stale)} /></td></tr>);
@@ -163,12 +166,12 @@ function AnnualGrid({ group }: { group: StudyGroup }) {
   const exportCsv = () => download(`ציונים-${group.name}-שנתי.csv`, toCSV([['שם', 'כיתת אם', 'סופי מחצית א׳', 'סופי מחצית ב׳', 'שנתי מחושב', 'שנתי סופי'], ...rows.map((r) => [label(r.s), r.s.home_class, r.f1, r.f2, r.a.calculatedRounded, r.fin.value])]));
   return (
     <>
-      <div className="toolbar"><span className="spacer" /><button className="icon-btn" aria-label="ייצוא CSV" title="ייצוא CSV" onClick={exportCsv}><Download size={18} /></button></div>
+      <div className="toolbar"><span className="spacer" /><button className="icon-btn" aria-label="ייצוא Excel" title="ייצוא Excel (כל המחציות והשנתי)" onClick={() => exportXlsx(db, group)}><FileSpreadsheet size={18} /></button><button className="icon-btn" aria-label="ייצוא CSV" title="ייצוא CSV" onClick={exportCsv}><Download size={18} /></button></div>
       <p className="muted">ציון שנתי מחושב מהציונים הסופיים של שתי המחציות בלבד (משקלים {w1}/{w2}, ניתן לשינוי בעריכת הקבוצה). אם מחצית לא אושרה — אין ציון שנתי מחושב.</p>
       <div className="gridwrap card flush"><table className="gb"><thead><tr><SortTh k="name" sort={sort} className="name">תלמיד</SortTh><SortTh k="f1" sort={sort}>סופי מחצית א׳</SortTh><SortTh k="f2" sort={sort}>סופי מחצית ב׳</SortTh><SortTh k="calc" sort={sort}>שנתי מחושב</SortTh><SortTh k="final" sort={sort}>שנתי סופי</SortTh></tr></thead>
         <tbody>{rows.map(({ s, f1, f2, a, fin }) => (
-          <tr key={s.id}><td className="name">{label(s)}</td><td>{f1 ?? '—'}</td><td>{f2 ?? '—'}</td>
-            <td className="calc">{a.calculatedRounded ?? <span className="muted">חסר: מחצית {a.missingTerms.map((t) => (t === 1 ? 'א׳' : 'ב׳')).join(' + ')}</span>}</td>
+          <tr key={s.id}><td className="name">{label(s)}</td><td className={`calc ${gradeTone(f1)}`}>{f1 ?? '—'}</td><td className={`calc ${gradeTone(f2)}`}>{f2 ?? '—'}</td>
+            <td className={`calc ${gradeTone(a.calculatedRounded)}`}>{a.calculatedRounded ?? <span className="muted">חסר: מחצית {a.missingTerms.map((t) => (t === 1 ? 'א׳' : 'ב׳')).join(' + ')}</span>}</td>
             <td><FinalCell label={`שנתי ${label(s)}`} value={fin.value} source={fin.source} stale={fin.stale}
               onSet={(v) => (v === null ? store.delFast('final_grades', { group_id: group.id, student_id: s.id, period: 'annual' }) : store.saveFast('final_grades', [{ group_id: group.id, student_id: s.id, period: 'annual', value: v, source: 'override', basis_calculated: a.calculated }]))}
               onApprove={() => approve(s.id, a.calculated as number)} canApprove={a.calculated !== null && (fin.value === null || fin.stale)} /></td></tr>))}</tbody></table></div>

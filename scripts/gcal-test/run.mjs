@@ -53,6 +53,14 @@ ok(r.skipped === 1 && tables.calendar_events.find((e) => e.google_event_id === '
 gone = true; events = [];
 r = await post({ action: 'sync' });
 ok(r.ok && r.full, '410 => סנכרון מלא מחדש');
+ok(r.cancelled >= 1 && tables.calendar_events.find((e) => e.google_event_id === 'e4').status === 'cancelled', 'סנכרון מלא: אירוע שנעלם בלי הודעה סומן מבוטל (לא נמחק)');
+ok(tables.calendar_events.length === 4, 'שום שורה לא נמחקה');
+// אירוע שחזר + כלל שיוך חדש לאירוע בלי קבוצה
+tables.user_settings[0].prefs.titleRules['ישיבת צוות'] = 'g1'; tables.calendar_events.find((e) => e.google_event_id === 'e2').group_id = null;
+events = [{ id: 'e2', summary: 'ישיבת צוות', start: { dateTime: '2026-10-13T10:00:00+03:00' }, end: { dateTime: '2026-10-13T11:00:00+03:00' } }, { id: 'e4', summary: 'מתמטיקה ח1', start: { dateTime: '2026-10-15T09:00:00+03:00' }, end: { dateTime: '2026-10-15T09:45:00+03:00' } }];
+r = await post({ action: 'sync' });
+ok(tables.calendar_events.find((e) => e.google_event_id === 'e4').status === 'confirmed', 'אירוע שבוטל וחזר ב-Google חוזר לפעיל');
+ok(tables.calendar_events.find((e) => e.google_event_id === 'e2').group_id === 'g1', 'אירוע בלי קבוצה מקבל שיוך לפי כלל חדש');
 // כשל באמצע: הטוקן לא מתקדם
 const tokBefore = tables.calendar_sync_state[0].sync_token;
 globalThis.fetch = async (url) => (String(url).includes('oauth2') ? Response.json({ error: 'invalid_grant' }, { status: 400 }) : new Response('', { status: 500 }));
