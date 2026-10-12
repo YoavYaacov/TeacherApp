@@ -59,7 +59,7 @@ main { flex: 1; overflow: auto; }
 .input, .search { padding: 9px 16px; border: 1px solid var(--muted); border-radius: 999px; background: var(--surface); min-width: 0; }
 textarea.input { border-radius: 14px; width: 100%; resize: vertical; }
 select.input { padding-inline-end: 12px; cursor: pointer; }
-.search { display: inline-flex; align-items: center; gap: 8px; min-width: 240px; flex: 1; max-width: 360px; }
+.search { display: inline-flex; align-items: center; gap: 8px; flex: none; width: 260px; }
 .search input { border: 0; outline: 0; background: transparent; width: 100%; padding: 0; }
 .search:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
 .form { display: grid; gap: 16px; } .form.two { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
@@ -126,9 +126,9 @@ table.gb { border-collapse: separate; border-spacing: 0; width: max-content; min
 .card.span2 { grid-column: span 2; }
 
 /* יומן */
-.weekgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+.weekgrid { display: grid; grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr)); gap: 12px; }
 .weekgrid .day { padding: 14px; min-height: 140px; } .weekgrid .day.today { border-color: var(--accent); }
-.weekgrid h2 { font-size: 14px; margin-bottom: 10px; }
+.weekgrid h2 { font-size: 14px; margin-bottom: 10px; white-space: nowrap; }
 .lesson-chip { display: block; width: 100%; text-align: start; padding: 8px 10px; margin-bottom: 6px; border: 0; border-radius: 12px; background: var(--tint); cursor: pointer; font-size: 13px; }
 .lesson-chip.cancelled { text-decoration: line-through; opacity: .6; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); margin-inline-start: 6px; }
@@ -151,6 +151,9 @@ table.gb { border-collapse: separate; border-spacing: 0; width: max-content; min
   .sidebar { display: none; } .topbar { padding: 0 16px; } .page { padding: 20px 16px 96px; }
   .bottomnav { display: flex; position: fixed; inset-inline: 0; bottom: 0; background: var(--sidebar); color: var(--sidebar-ink); padding: 6px 4px; z-index: 10; }
   .bottomnav .nav-item { flex: 1; flex-direction: column; gap: 2px; font-size: 12px; align-items: center; justify-content: center; text-align: center; padding: 8px 4px; }
-  .settings { grid-template-columns: 1fr; } .weekgrid { grid-template-columns: 1fr; } .card.span2 { grid-column: auto; }
+  .settings { grid-template-columns: 1fr; } .weekgrid { grid-template-columns: 1fr !important; } .card.span2 { grid-column: auto; }
   .dt th, .dt td { padding: 12px 14px; } .tab { padding: 12px; } h1 { font-size: 24px; }
 }
+
+.actions-row { height: 42px; margin-top: -4px; }
+@media (max-width: 860px) { .search { width: 100%; } }

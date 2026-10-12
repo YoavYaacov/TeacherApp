@@ -60,15 +60,17 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
   return (
     <>
       <div className="toolbar">
+        <div className="seg" role="group" aria-label="תצוגה"><button aria-pressed={!archive} onClick={() => setArchive(false)}>פעילים</button><button aria-pressed={archive} onClick={() => setArchive(true)}>ארכיון</button></div>
         <label className="search"><Search size={16} aria-hidden /><input aria-label="חיפוש תלמיד" placeholder="חיפוש לפי שם" value={q} onChange={(e) => setQ(e.target.value)} /></label>
         <select className="input" aria-label="סינון לפי כיתת אם" value={cls} onChange={(e) => setCls(e.target.value)}><option value="">כל הכיתות</option>{classes.map((c) => <option key={c}>{c}</option>)}</select>
         <select className="input" aria-label="מיון" value={sort} onChange={(e) => setSort(e.target.value as 'name' | 'class')}><option value="name">מיון: שם</option><option value="class">מיון: כיתת אם</option></select>
-        <div className="seg" role="group" aria-label="תצוגה"><button aria-pressed={!archive} onClick={() => setArchive(false)}>פעילים</button><button aria-pressed={archive} onClick={() => setArchive(true)}>ארכיון</button></div>
-        <span className="spacer" />
-        {!archive && <>
-          <button className="btn" onClick={() => setModal('paste')}><ClipboardPaste size={16} aria-hidden />הדבק רשימה / ייבוא</button>
-          <button className="icon-btn" aria-label="ייצוא" title="ייצוא CSV" onClick={exportCsv}><Download size={18} /></button>
-          <button className="btn primary" onClick={() => setModal('add')}><UserPlus size={16} aria-hidden />הוסף תלמיד</button></>}
+      </div>
+      <div className="toolbar actions-row">
+        {archive ? <span className="muted">תלמידים שנגרעו מהקבוצה. הציונים שלהם נשמרים; אפשר לשחזר או להעביר.</span> : <>
+          <button className="btn primary" onClick={() => setModal('add')}><UserPlus size={16} aria-hidden />הוסף תלמיד</button>
+          <button className="btn" onClick={() => setModal('paste')}><ClipboardPaste size={16} aria-hidden />ייבוא רשימה</button>
+          <span className="spacer" />
+          <button className="icon-btn" aria-label="ייצוא" title="ייצוא CSV" onClick={exportCsv}><Download size={18} /></button></>}
       </div>
       <div className="card flush">
         {rows.length === 0 ? <p className="muted pad">{archive ? 'אין תלמידים בארכיון' : 'אין תלמידים. הוסף תלמיד או הדבק רשימה.'}</p> :

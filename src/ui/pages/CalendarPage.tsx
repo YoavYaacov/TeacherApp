@@ -15,7 +15,8 @@ export function CalendarPage() {
   const [week, setWeek] = useState(startOfWeek(new Date()));
   const [adding, setAdding] = useState(false);
   const groups = store.db.study_groups.filter((g) => !g.archived_at);
-  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(week); d.setDate(d.getDate() + i); return d; });
+  const hasSat = store.db.calendar_events.some((l) => { const d = new Date(l.start_at); return d.getDay() === 6 && iso(d) === iso(new Date(new Date(week).setDate(week.getDate() + 6))); });
+  const days = Array.from({ length: hasSat ? 7 : 6 }, (_, i) => { const d = new Date(week); d.setDate(d.getDate() + i); return d; });
   const shift = (n: number) => { const d = new Date(week); d.setDate(d.getDate() + n * 7); setWeek(d); };
   const name = (id: string | null) => store.db.study_groups.find((g) => g.id === id)?.name ?? 'שיעור';
   return (
@@ -26,9 +27,9 @@ export function CalendarPage() {
         <button className="btn sm" aria-label="שבוע קודם" onClick={() => shift(-1)}><ChevronRight size={16} /></button>
         <button className="btn sm" onClick={() => setWeek(startOfWeek(new Date()))}>השבוע</button>
         <button className="btn sm" aria-label="שבוע הבא" onClick={() => shift(1)}><ChevronLeft size={16} /></button>
-        <strong>{days[0].toLocaleDateString('he-IL')} – {days[6].toLocaleDateString('he-IL')}</strong>
+        <strong>{days[0].toLocaleDateString('he-IL')} – {days[days.length - 1].toLocaleDateString('he-IL')}</strong>
       </div>
-      <div className="weekgrid">{days.map((d, i) => {
+      <div className="weekgrid" style={{ ['--cols' as string]: days.length }}>{days.map((d, i) => {
         const items = store.db.calendar_events.filter((l) => iso(new Date(l.start_at)) === iso(d)).sort((a, b) => a.start_at.localeCompare(b.start_at));
         const isToday = iso(d) === iso(new Date());
         return (
