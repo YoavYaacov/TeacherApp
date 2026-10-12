@@ -19,7 +19,9 @@ export interface TaskEnv {
 }
 const tool = (n: string) => TOOLS.find((t) => t.name === n)!;
 const mkCtx = (env: TaskEnv, alias: AliasMap): ToolCtx => ({ db: env.db, alias, now: env.now ?? new Date(), level: env.prefs.level, groupId: env.conv.context.kind === 'system' ? null : env.conv.context.group_id });
-const ok = (text: string, blocks: Block[] = [], sources: string[] = [], usedAI = true, extra: Partial<{ redacted: number; usage: { used: number; limit: number } }> = {}): TurnResult => ({ ok: true, text, blocks, sources, usedAI, redacted: extra.redacted ?? 0, usage: extra.usage });
+const ok = (text: string, blocks: Block[] = [], sources: string[] = [], usedAI = true, extra: Partial<{ redacted: number; usage: { used: number; limit: number }; truncated: boolean }> = {}): TurnResult => ({ ok: true, text, blocks, sources, usedAI, redacted: extra.redacted ?? 0, usage: extra.usage, truncated: extra.truncated || undefined });
+const cutOf = (r: { finishReason?: string | null }) => r.finishReason === 'MAX_TOKENS';
+const CUT_MSG = 'הפלט נחתך בגלל מגבלת אורך. נסה בקשה קטנה יותר (פחות תרגילים או תלמידים בבת אחת).';
 const err = (error: string, message: string): GenFail => ({ ok: false, error, message });
 const periodName = (p: string) => (p === 'h1' ? 'מחצית א׳' : p === 'h2' ? 'מחצית ב׳' : 'שנתי');
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -50,7 +52,7 @@ export async function classAnalysis(env: TaskEnv, p: { groupId: string; term?: 1
   const r = await ask(env, alias, system, `נתוני הכיתה (JSON):\n${JSON.stringify(stats.model)}`, { max: 2500 });
   if (!r.ok) return r.error === 'quota_exhausted' || r.error === 'daily_limit' || r.error === 'local_mode' || r.error === 'not_deployed' || r.error === 'not_configured'
     ? ok(`${stats.summary}. ניתוח מילולי (פרשנות והמלצות) לא זמין כרגע: ${r.message}`, blocks, stats.sources, false) : r;
-  return ok(alias.restore(r.text), blocks, stats.sources, true, { redacted: r.redacted, usage: { used: r.used, limit: r.limit } });
+  return ok(alias.restore(r.text), blocks, stats.sources, true, { redacted: r.redacted, usage: { used: r.used, limit: r.limit }, truncated: cutOf(r) });
 }
 
 // ───────────────────────── 2. תיק תלמיד חכם ─────────────────────────
@@ -64,7 +66,7 @@ export async function studentFile(env: TaskEnv, p: { groupId: string; studentId:
   const system = 'אתה יועץ פדגוגי למורה למתמטיקה ובונה "תיק תלמיד" על סמך הנתונים בלבד. מבנה חובה (כותרות ##): סיכום הישגים; מגמת ציונים לאורך זמן; חוזקות (רק אם הנתונים תומכים); קשיים או פערים מתועדים (רק מהנתונים); שינויים בין תקופות; המלצות להוראה ולתרגול; נקודות לשיחה עם התלמיד/ההורים; שאלות להמשך (מה חסר כדי להבין טוב יותר). כל משפט מסומן [עובדה] / [פרשנות] / [המלצה]. לכל מסקנה משמעותית ציין מקור בסוגריים (איזה מבחן/ציון/תיעוד). אסור: אבחנות פסיכולוגיות או תוויות, המצאת התנהגות/מאמץ/יכולות, והסקת קושי בנושא מציון כללי. אם הנתונים מועטים (פחות מ-3 ציונים) אמור זאת במפורש ואל תסיק מגמה. התלמיד מופיע כקוד ST-n. ' + MATH_RULES;
   const r = await ask(env, alias, system, `נתוני התלמיד (JSON):\n${JSON.stringify(res.model)}`, { max: 3000 });
   if (!r.ok) return r;
-  return ok(alias.restore(r.text), res.blocks, res.sources, true, { redacted: r.redacted, usage: { used: r.used, limit: r.limit } });
+  return ok(alias.restore(r.text), res.blocks, res.sources, true, { redacted: r.redacted, usage: { used: r.used, limit: r.limit }, truncated: cutOf(r) });
 }
 
 // ───────────────────────── 3. הערכות לתעודה ─────────────────────────
@@ -156,7 +158,7 @@ export async function lessonPlan(env: TaskEnv, p: PlanParams): Promise<TurnResul
   const user = [`שכבה/רמה: ${p.level}`, g ? `קבוצה: ${g.name}` : '', `נושא: ${p.topic}`, `משך: ${p.minutes} דקות`, `רמת הכיתה: ${CL[p.classLevel]}`, p.goals ? `מטרות: ${p.goals}` : '', p.notes ? `הערות מיוחדות: ${p.notes}` : ''].filter(Boolean).join('\n');
   const r = await ask(env, alias, system, user, { max: 4096, temp: 0.6 });
   if (!r.ok) return r;
-  return ok(alias.restore(r.text), [], [], true, { redacted: r.redacted, usage: { used: r.used, limit: r.limit } });
+  return ok(alias.restore(r.text), [], [], true, { redacted: r.redacted, usage: { used: r.used, limit: r.limit }, truncated: cutOf(r) });
 }
 
 export interface PracticeParams { groupId?: string; level: string; topic: string; counts: { basic: number; medium: number; challenging: number }; notes?: string }
@@ -173,7 +175,7 @@ export async function practice(env: TaskEnv, p: PracticeParams): Promise<TurnRes
   if (!r.ok) return r;
   let used = { used: r.used, limit: r.limit }; let redacted = r.redacted;
   let exs = (parseJson<{ exercises?: Ex[] }>(r.text)?.exercises ?? []).filter((e) => e?.question && e?.solution);
-  if (!exs.length) return err('bad_output', 'לא התקבלו תרגילים תקינים. נסה שוב.');
+  if (!exs.length) return cutOf(r) ? err('truncated', CUT_MSG) : err('bad_output', 'לא התקבלו תרגילים תקינים. נסה שוב.');
   let results = exs.map((e) => verifyCheck(e.check as Check | undefined));
   // ניסיון תיקון אחד לתרגילים שנכשלו בבדיקה
   const bad = results.map((v, i) => (v.status === 'failed' ? i : -1)).filter((i) => i >= 0);

@@ -11,6 +11,7 @@ export type Block =
   | { type: 'list'; title?: string; items: string[] }
   | { type: 'draft'; draftId: string }
   | { type: 'draft_bulk'; ids: string[] }
+  | { type: 'truncated' }
   | { type: 'verify'; items: { question: string; status: 'verified' | 'failed' | 'unverified'; detail: string }[] };
 export interface ToolCtx { db: DB; alias: AliasMap; now: Date; level: 'A' | 'B'; groupId?: string | null; studentId?: string | null }
 export interface ToolResult { model: unknown; blocks: Block[]; sources: string[]; summary: string }

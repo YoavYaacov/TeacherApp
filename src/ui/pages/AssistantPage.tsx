@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, ChevronLeft, Copy, FileText, GraduationCap, HelpCircle, ListChecks, MessageSquarePlus, Plus, Send, Settings2, Sparkles, Trash2, Users, UserRound, X } from 'lucide-react';
+import { BookOpen, ChevronLeft, Copy, FileDown, FileText, Globe, GraduationCap, HelpCircle, ListChecks, MessageSquarePlus, Plus, Send, Settings2, Sparkles, Trash2, Users, UserRound, X } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { useNav } from '../nav';
 import { Modal } from '../Modal';
 import { Markdown } from '../Markdown';
 import type { AiContext, AiConversation, AiMessage } from '../../data/types';
-import { runTurn, type TurnResult } from '../../ai/agent';
+import { runTurn, trimCut, CONTINUE_TEXT, type TurnResult } from '../../ai/agent';
+import type { Block } from '../../ai/tools';
+import { resetLabel, LIMIT_NOTE } from '../../ai/quota';
 import { aiStatus, generate, isFail } from '../../ai/gemini';
 import { getPrefs } from '../../ai/prefs';
 import { makeAliasMap } from '../../ai/pseudo';
@@ -16,6 +18,7 @@ import { regenerateEvaluation } from '../../ai/tasks';
 import type { AiDraft } from '../../data/types';
 import { Wizard, type TaskKind } from './AiWizards';
 import { boot, saveView } from '../viewState';
+import { copyRich, downloadDocx, downloadHtml, messageMarkdown } from '../exportActions';
 
 const ctxTitle = (db: ReturnType<typeof useStore>['db'], c: AiContext) => {
   if (c.kind === 'system') return 'כל המערכת';
@@ -52,6 +55,7 @@ export function AssistantPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ message: string; blocked?: boolean } | null>(null);
   const [showHist, setShowHist] = useState(false);
+  const [usageInfo, setUsageInfo] = useState(false);
   const [pickCtx, setPickCtx] = useState(false);
   const [wizard, setWizard] = useState<TaskKind | null>(null);
   const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
@@ -99,7 +103,7 @@ export function AssistantPage() {
         setErr({ message: r.message, blocked: r.error === 'quota_exhausted' || r.error === 'daily_limit' });
       } else {
         if (r.usage) setUsage(r.usage);
-        await store.save('ai_messages', [{ conversation_id: c.id, role: 'assistant', content: r.text, blocks: r.blocks, sources: r.sources, created_at: new Date(Date.now() + 1).toISOString() }]);
+        await store.save('ai_messages', [{ conversation_id: c.id, role: 'assistant', content: r.text, blocks: r.truncated ? [...r.blocks, { type: 'truncated' }] : r.blocks, sources: r.sources, created_at: new Date(Date.now() + 1).toISOString() }]);
       }
       await store.patch('ai_conversations', c.id, { updated_at: new Date().toISOString() });
     } catch (e) { setErr({ message: `השמירה נכשלה: ${(e as Error).message}` }); }
@@ -111,6 +115,23 @@ export function AssistantPage() {
     if (blocked && !matchIntent(db, t)) { setErr({ message: 'המכסה החינמית היומית נגמרה, ולכן שאלות שדורשות AI חסומות עד שתתחדש. שאלות עובדתיות על המערכת (שיעורים, תיעוד, ציונים) עדיין עובדות.', blocked: true }); return; }
     setText('');
     await post(t, (c, history) => runTurn({ db, conv: c, history, text: t, prefs, gen: generate }));
+  };
+
+  /** המשך תשובה שנקטעה: קריאה אחת קצרה, בלי לחזור על מה שנכתב; ההמשך מתחבר לאותה הודעה */
+  const continueReply = async (m: AiMessage) => {
+    if (busyRef.current || blocked) return; busyRef.current = true; setBusy(true); setErr(null);
+    try {
+      const c = db.ai_conversations.find((x) => x.id === m.conversation_id); if (!c) return;
+      const history = db.ai_messages.filter((x) => x.conversation_id === c.id && x.created_at <= m.created_at).sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const tail = trimCut(m.content).slice(-160);
+      const r = await runTurn({ db, conv: c, history, text: CONTINUE_TEXT(tail), prefs, gen: generate, continuation: true });
+      if (!r.ok) { if (r.blockedUntil) setBlockedUntil(r.blockedUntil); setErr({ message: r.message, blocked: r.error === 'quota_exhausted' || r.error === 'daily_limit' }); return; }
+      if (r.usage) setUsage(r.usage);
+      const head = trimCut(m.content); const glue = /^[\s.,;:!?)\]]/.test(r.text) || /\s$/.test(head) ? '' : ' ';
+      await store.patch('ai_messages', m.id, { content: head + glue + r.text, blocks: [...(m.blocks as Block[]).filter((b) => b.type !== 'truncated'), ...(r.truncated ? [{ type: 'truncated' }] : [])] });
+      await store.patch('ai_conversations', c.id, { updated_at: new Date().toISOString() });
+    } catch (e) { setErr({ message: `ההמשך נכשל: ${(e as Error).message}` }); }
+    finally { busyRef.current = false; setBusy(false); }
   };
 
   const newChat = () => { setActiveId(null); setDraftCtx({ kind: 'system' }); setErr(null); setShowHist(false); };
@@ -146,8 +167,9 @@ export function AssistantPage() {
         </div>
       </header>
       <div className="chat-ctx"><button className="chip" onClick={() => setPickCtx(true)} title="שינוי הקשר"><Settings2 size={14} aria-hidden /> {ctxTitle(db, ctx)}</button>
-        {usage && <span className="muted small" title="בקשות AI שנוצלו היום מתוך המגבלה היומית">AI היום: {usage.used}/{usage.limit}</span>}
+        {usage && <span className="muted small usage" title={LIMIT_NOTE(usage.limit)}>בקשות AI היום: {usage.used} מתוך {usage.limit} (מגבלה פנימית של TeacherApp) · מתאפס {resetLabel()} (שעון ישראל) <button className="linklike" aria-expanded={usageInfo} onClick={() => setUsageInfo((v) => !v)}>למה?</button></span>}
         {prefs.level === 'B' ? <span className="muted small" title="נתוני תלמידים נשלחים בכינויים בלבד, בלי שמות ובלי הערות פרטיות">פרטיות: כינויים</span> : <span className="muted small">פרטיות: נתונים מצטברים בלבד</span>}</div>
+      {usageInfo && usage && <p className="note-banner" role="note">{LIMIT_NOTE(usage.limit)} הספירה מתחילה מחדש בכל חצות לפי שעון ארה״ב המערבית (אותו יום מכסה של Google), כלומר {resetLabel()} לפי שעון ישראל. שאלות עובדתיות על המערכת לא נספרות, כי הן לא משתמשות ב-AI.</p>}
       {showHist && <div className="hist card">
         {convs.length === 0 ? <p className="muted">אין שיחות שמורות</p> : <ul className="list">{convs.map((c) => (
           <li key={c.id}><button className="rowbtn" onClick={() => { setActiveId(c.id); setShowHist(false); setErr(null); }}><span><strong>{c.title}</strong><br /><small className="muted">{ctxTitle(db, c.context)}</small></span><span className="muted">{when(c.updated_at)}</span></button>
@@ -163,7 +185,7 @@ export function AssistantPage() {
             {!cloud && <p className="note-banner">מצב מקומי: שאלות עובדתיות על המערכת עובדות. יכולות ה-AI דורשות חיבור לענן (Supabase).</p>}
             {notDeployed && <p className="note-banner">פונקציית ה-AI עדיין לא הותקנה ב-Supabase. שאלות עובדתיות עובדות כבר עכשיו; להפעלת שאר היכולות ראה docs/SETUP.md סעיף ה׳.</p>}
           </div>)}
-        {messages.map((m) => <Bubble key={m.id} m={m} />)}
+        {messages.map((m, i) => <Bubble key={m.id} m={m} canContinue={i === messages.length - 1 && !busy} blocked={blocked} onContinue={() => void continueReply(m)} />)}
         {busy && <div className="msg assistant"><div className="bubble typing" role="status">{progress ?? 'העוזר חושב…'}</div></div>}
       </div>
       {err && <div className={blocked ? 'note-banner' : 'issue-banner'} role="alert">{err.message}<button className="icon-btn" aria-label="סגור" onClick={() => setErr(null)}><X size={14} /></button></div>}
@@ -180,18 +202,27 @@ export function AssistantPage() {
   );
 }
 
-function Bubble({ m }: { m: AiMessage }) {
+function Bubble({ m, canContinue, blocked, onContinue }: { m: AiMessage; canContinue: boolean; blocked: boolean; onContinue: () => void }) {
   const store = useStore();
   const alias = useMemo(() => makeAliasMap(store.db.students, m.conversation_id), [store.db.students, m.conversation_id]);
-  const [copied, setCopied] = useState(false);
-  const copy = async () => { try { await navigator.clipboard.writeText(alias.restore(m.content)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ } };
+  const [copied, setCopied] = useState<'' | 'rich' | 'plain'>('');
+  const md = () => messageMarkdown(alias.restore(m.content), m.blocks);
+  const copy = async () => { try { setCopied(await copyRich(md())); setTimeout(() => setCopied(''), 2500); } catch { /* ignore */ } };
+  const truncated = (m.blocks as Block[]).some((b) => b.type === 'truncated');
+  const hasMath = /\$|\\\(|\\\[/.test(m.content);
   if (m.role === 'user') return <div className="msg user"><div className="bubble" dir="auto">{m.content}</div></div>;
   return (
     <div className="msg assistant"><div className="bubble">
       <Markdown text={m.content} />
       <MessageBlocks blocks={m.blocks} />
       <Sources sources={m.sources as string[]} />
-      <div className="bubble-tools"><button className="linklike" onClick={() => void copy()}><Copy size={13} aria-hidden /> {copied ? 'הועתק' : 'העתק'}</button></div>
+      {truncated && <div className="note-banner cut" role="status">התשובה נקטעה כי הגיעה למגבלת האורך.{' '}
+        {canContinue ? <button className="btn sm" disabled={blocked} onClick={onContinue}>המשך תשובה</button> : <span className="muted">אפשר להמשיך רק את התשובה האחרונה בשיחה.</span>}</div>}
+      <div className="bubble-tools">
+        <button className="linklike" onClick={() => void copy()} title="מעתיק עם נוסחאות מעוצבות. להדבקה ב-Word כמשוואות ניתנות לעריכה העדף הורדת Word"><Copy size={13} aria-hidden /> {copied === 'rich' ? 'הועתק' : copied === 'plain' ? 'הועתק כטקסט' : 'העתק'}</button>
+        <button className="linklike" onClick={() => downloadDocx(md())} title="קובץ Word עם משוואות אמיתיות הניתנות לעריכה"><FileDown size={13} aria-hidden /> Word{hasMath ? ' (עם משוואות)' : ''}</button>
+        <button className="linklike" onClick={() => downloadHtml(md())} title="דף HTML עצמאי, מתאים להדפסה"><Globe size={13} aria-hidden /> HTML</button>
+      </div>
     </div></div>
   );
 }

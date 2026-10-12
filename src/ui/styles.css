@@ -253,3 +253,6 @@ math { font-size: 1.05em; }
   .danger-zone .dz-actions .btn { width: 100%; justify-content: center; min-height: 44px; }
 }
 .danger-zone .dz-confirm input { scroll-margin-bottom: 110px; }
+.note-banner.cut { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0 0; }
+.usage { line-height: 1.6; }
+.bubble-tools { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }

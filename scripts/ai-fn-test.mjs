@@ -10,6 +10,7 @@ globalThis.fetch = async (url, init) => {
   gem.push({ url: String(url), headers: init.headers, body: JSON.parse(init.body) });
   if (mode === 'quota') return Response.json({ error: { code: 429, message: 'Quota exceeded for metric generate_content_free_tier_requests, limit: 1000', details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } }, { status: 429 });
   if (mode === 'rpm') return Response.json({ error: { code: 429, message: 'Please retry in 21.5s', details: [{ violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier' }] }] } }, { status: 429 });
+  if (mode === 'cut') return Response.json({ candidates: [{ content: { role: 'model', parts: [{ text: 'חלק מהפתרון' }] }, finishReason: 'MAX_TOKENS' }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 4096 } });
   if (mode === 'badkey') return Response.json({ error: { code: 400, message: 'API key not valid' } }, { status: 400 });
   if (mode === 'fc') return Response.json({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'undocumented_lessons', args: { days: 7 } }, thoughtSignature: 'sig' }] } }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 2 } });
   return Response.json({ candidates: [{ content: { role: 'model', parts: [{ text: 'שלום' }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 20 } });
@@ -67,5 +68,10 @@ mode = 'ok'; r = await post({ action: 'generate', request_id: uid(), contents: m
 ok(gem.at(-1).body.generationConfig.responseMimeType === 'application/json' && gem.at(-1).body.generationConfig.responseSchema.type === 'OBJECT', 'פלט מובנה (schema) מועבר, עם טיפוסים באותיות גדולות');
 r = await post({ action: 'generate', request_id: 'bad', contents: msg('i') }); ok(r.error === 'bad_request', 'request_id לא תקין נדחה');
 r = await post({ action: 'generate', request_id: uid(), contents: msg('x'.repeat(70000)) }); ok(r.error === 'too_large', 'בקשה ענקית נדחית');
+tables.ai_usage = []; mode = 'cut';
+r = await post({ action: 'generate', request_id: uid(), contents: msg('פתור'), maxOutputTokens: 6144 });
+ok(r.ok && r.finishReason === 'MAX_TOKENS' && gem.at(-1).body.generationConfig.maxOutputTokens === 6144, 'finishReason=MAX_TOKENS מועבר ללקוח, ומגבלת הפלט המבוקשת מועברת');
+r = await post({ action: 'generate', request_id: uid(), contents: msg('פתור'), maxOutputTokens: 99999 });
+ok(gem.at(-1).body.generationConfig.maxOutputTokens === 8192, 'מגבלת פלט נחתכת ל-8192 בשרת'); mode = 'ok';
 envs.GEMINI_API_KEY = ''; r = await post({ action: 'generate', request_id: uid(), contents: msg('x') }); ok(r.error === 'not_configured', 'ללא מפתח: הודעת הגדרה');
 console.log(fails ? `\n${fails} FAILED` : '\nכל הבדיקות עברו'); process.exit(fails ? 1 : 0);

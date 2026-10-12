@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 
 export interface GenReq { system?: string; contents: unknown[]; tools?: unknown[]; schema?: unknown; temperature?: number; maxOutputTokens?: number }
-export interface GenOk { ok: true; text: string; functionCalls: { name: string; args: Record<string, unknown> }[]; modelContent: unknown; redacted: number; used: number; limit: number; usage: { in: number; out: number } }
+export interface GenOk { ok: true; text: string; functionCalls: { name: string; args: Record<string, unknown> }[]; modelContent: unknown; redacted: number; used: number; limit: number; usage: { in: number; out: number }; finishReason?: string | null }
 export interface GenFail { ok: false; error: string; message: string; retryAfterSec?: number; blockedUntil?: string }
 export type GenResult = GenOk | GenFail;
 export type GenFn = (r: GenReq) => Promise<GenResult>;

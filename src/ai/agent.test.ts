@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runTurn } from './agent';
+import { runTurn, outputBudget, trimCut, CONTINUE_TEXT } from './agent';
 import { DEFAULT_PREFS } from './prefs';
 import type { GenFn, GenReq } from './gemini';
 import { emptyDB, type DB } from '../data/types';
@@ -55,5 +55,41 @@ describe('סוכן', () => {
     const history = [{ id: 'm', conversation_id: 'conv-1', role: 'assistant' as const, content: 'דנה כהן שיפרה', blocks: [], sources: [], created_at: '' }];
     await runTurn({ db: fixture(), conv, history, text: 'המשך', prefs: DEFAULT_PREFS, gen });
     expect(sent).not.toMatch(/דנה|כהן/); expect(sent).toMatch(/ST-/);
+  });
+
+  describe('תשובות שנקטעות', () => {
+    const okGen = (text: string, finishReason: string | null, seen?: { req?: unknown[] }): GenFn => async (req) => { seen?.req?.push(req); return { ok: true, text, functionCalls: [], modelContent: null, redacted: 0, used: 1, limit: 9, usage: { in: 1, out: 1 }, finishReason }; };
+    it('finishReason=MAX_TOKENS מסמן truncated וחותך נוסחה פתוחה', async () => {
+      const r = await runTurn({ db: fixture(), conv, history: [], text: 'פתור את המשוואה', prefs: DEFAULT_PREFS, gen: okGen('שלב 1: $x^2 + 3x', 'MAX_TOKENS') });
+      expect(r.ok && r.truncated).toBe(true); expect(r.ok && r.text).toBe('שלב 1:');
+    });
+    it('תשובה רגילה לא מסומנת; נקטעה בלי טקסט => הודעה ברורה', async () => {
+      const a = await runTurn({ db: fixture(), conv, history: [], text: 'שלום, מה נשמע', prefs: DEFAULT_PREFS, gen: okGen('שלום', 'STOP') });
+      expect(a.ok && a.truncated).toBeUndefined();
+      const b = await runTurn({ db: fixture(), conv, history: [], text: 'שלום, מה נשמע', prefs: DEFAULT_PREFS, gen: okGen('', 'MAX_TOKENS') });
+      expect(!b.ok && b.error).toBe('truncated_empty');
+    });
+    it('המשך: בלי כלים, בלי ניתוב מקומי, ההיסטוריה כוללת את החלק שנכתב, והפלט מוגבל', async () => {
+      const seen: { req: any[] } = { req: [] };
+      const history = [{ id: 'm', conversation_id: 'conv-1', role: 'assistant' as const, content: 'שלב 1: מעבירים אגפים. שלב 2:', blocks: [], sources: [], created_at: '' }];
+      const r = await runTurn({ db: fixture(), conv, history, text: CONTINUE_TEXT('שלב 2:'), prefs: DEFAULT_PREFS, gen: okGen('שלב 3: מקבלים x=2.', 'STOP', seen), continuation: true });
+      expect(r.ok && r.text).toBe('שלב 3: מקבלים x=2.');
+      expect(seen.req).toHaveLength(1); expect(seen.req[0].tools).toBeUndefined(); expect(seen.req[0].maxOutputTokens).toBe(4096);
+      expect(JSON.stringify(seen.req[0].contents)).toContain('מעבירים אגפים'); expect(JSON.stringify(seen.req[0].contents)).toContain('בלי לחזור');
+    });
+    it('מגבלת פלט לפי סוג הבקשה', () => {
+      const p = DEFAULT_PREFS;
+      expect(outputBudget('מה שלומך', p)).toBe(2560);
+      expect(outputBudget('מה שלומך', { ...p, answerLength: 'short' })).toBe(1536);
+      expect(outputBudget('פתור את המשוואה x^2=4 עם כל הסעיפים', p)).toBe(4096);
+      expect(outputBudget('פתור תרגיל', { ...p, answerLength: 'detailed' })).toBe(6144);
+      expect(outputBudget('x', p, true)).toBe(4096);
+      expect(outputBudget('פתור', { ...p, answerLength: 'short' })).toBe(4096); // פתרון מתמטי מקבל מקום גם בבקשה "קצרה"
+    });
+    it('trimCut: חותך נוסחה פתוחה ומשאיר שלמות', () => {
+      expect(trimCut('א $x+1$ ב $y')).toBe('א $x+1$ ב'); expect(trimCut('ok  ')).toBe('ok');
+      expect(trimCut('$$a=b$$ ו-$$c')).toBe('$$a=b$$ ו-'.trimEnd()); expect(trimCut('$$a=b$$ סוף')).toBe('$$a=b$$ סוף');
+      expect(trimCut('הנה \\(x+1')).toBe('הנה'); expect(trimCut('הנה \\(x+1\\) ו')).toBe('הנה \\(x+1\\) ו');
+    });
   });
 });
