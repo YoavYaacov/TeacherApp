@@ -2,7 +2,7 @@ import { useStore } from '../../data/store';
 import { useNav } from '../nav';
 import { fmtDay, fmtTime } from '../../lib/util';
 import { needsDoc } from '../../lib/lessons';
-import { activeStudents } from '../../lib/domain';
+import { activeStudents, shownEvents } from '../../lib/domain';
 
 export function HomePage() {
   const store = useStore();
@@ -15,8 +15,9 @@ export function HomePage() {
   const groups = db.study_groups.filter((g) => !g.archived_at);
   // שיעורים קרובים: מה שמתרחש עכשיו ועד שבוע קדימה
   const horizon = new Date(now); horizon.setDate(horizon.getDate() + 7);
-  const upcoming = db.calendar_events.filter((l) => l.status === 'confirmed' && !l.all_day && new Date(l.end_at) >= now && new Date(l.start_at) <= horizon).sort((a, b) => a.start_at.localeCompare(b.start_at));
-  const pending = db.calendar_events.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now, l.group_id)).sort((a, b) => b.start_at.localeCompare(a.start_at));
+  const shown = shownEvents(db);
+  const upcoming = shown.filter((l) => l.status === 'confirmed' && !l.all_day && new Date(l.end_at) >= now && new Date(l.start_at) <= horizon).sort((a, b) => a.start_at.localeCompare(b.start_at));
+  const pending = shown.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now, l.group_id)).sort((a, b) => b.start_at.localeCompare(a.start_at));
   const dayLabel = (s: string) => { const d = new Date(s); const diff = Math.round((new Date(d.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / 86400000); return diff === 0 ? 'היום' : diff === 1 ? 'מחר' : fmtDay(s); };
   return (
     <>
@@ -27,7 +28,7 @@ export function HomePage() {
             <ul className="list">{upcoming.slice(0, 8).map((l) => (
               <li key={l.id}><button className="rowbtn" disabled={!l.group_id} onClick={() => go('groups', l.group_id)}>
                 <span>{groupName(l.group_id, l.title)}</span>
-                <span className="muted">{dayLabel(l.start_at)} · {fmtTime(l.start_at)}–{fmtTime(l.end_at)}</span></button></li>))}</ul>}
+                <span className="muted">{dayLabel(l.start_at)} · <bdi dir="ltr">{fmtTime(l.start_at)}–{fmtTime(l.end_at)}</bdi></span></button></li>))}</ul>}
           {upcoming.length > 8 && <p className="muted"><button className="linklike" onClick={() => go('calendar')}>לכל השיעורים ביומן</button></p>}
         </section>
         <section className="card"><h2>תיעודים ממתינים{pending.length > 0 && <span className="muted"> · {pending.length}</span>}</h2>

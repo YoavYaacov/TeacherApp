@@ -8,7 +8,7 @@ export interface AssessmentEventRow { id: string; group_id: string; term: 1 | 2;
 export interface GradeRow { event_id: string; student_id: string; attempt: 1 | 2; status: 'score' | 'exempt' | 'absent'; score: number | null }
 export interface PolicyOverride { event_id: string; student_id: string; policy: 'best' | 'latest' | 'average' }
 export interface FinalGradeRow { group_id: string; student_id: string; period: 'h1' | 'h2' | 'annual'; value: number; source: 'approved' | 'override'; basis_calculated: number | null }
-export interface CalendarEvent { id: string; group_id: string | null; title: string; start_at: string; end_at: string; status: 'confirmed' | 'cancelled'; source: 'internal' | 'google'; local_dirty?: boolean; google_calendar_id?: string | null; google_event_id?: string | null; recurring_event_id?: string | null; etag?: string | null; all_day?: boolean }
+export interface CalendarEvent { id: string; group_id: string | null; title: string; start_at: string; end_at: string; status: 'confirmed' | 'cancelled'; source: 'internal' | 'google'; local_dirty?: boolean; google_calendar_id?: string | null; google_event_id?: string | null; recurring_event_id?: string | null; etag?: string | null; all_day?: boolean; hidden?: boolean }
 export interface LessonLog { calendar_event_id: string; topic: string | null; learned: string | null; homework: string | null; private_note: string | null; completion: 'pending' | 'done' | 'not_needed' }
 export interface UserSettings { id: true; theme: string; prefs: Record<string, unknown> }
 

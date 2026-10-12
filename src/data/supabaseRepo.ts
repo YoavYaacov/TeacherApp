@@ -36,4 +36,12 @@ export class SupabaseRepo implements Repo {
     const { error } = await q;
     if (error) throw new Error(`${table}: ${error.message}`);
   }
+  private async rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
+    const { data, error } = await this.sb.rpc(fn, args);
+    if (error) throw new Error(error.message);
+    return data as T;
+  }
+  deleteGroup(id: string) { return this.rpc<{ events: { deleted: number; hidden: number }; students_deleted: number }>('delete_study_group', { p_group: id }); }
+  deleteGroupLessons(id: string) { return this.rpc<{ deleted: number; hidden: number }>('delete_group_lessons', { p_group: id }); }
+  restoreHiddenEvents() { return this.rpc<number>('restore_hidden_events'); }
 }

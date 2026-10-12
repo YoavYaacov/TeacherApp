@@ -101,17 +101,18 @@ async function sync(): Promise<Record<string, unknown>> {
     }
 
     const ids = [...items.keys()];
-    const existing = new Map<string, { id: string; group_id: string | null; local_dirty: boolean }>();
+    const existing = new Map<string, { id: string; group_id: string | null; local_dirty: boolean; hidden: boolean }>();
     for (const part of chunk(ids, 80)) {
-      const { data, error } = await admin.from('calendar_events').select('id,google_event_id,group_id,local_dirty').eq('google_calendar_id', calId).in('google_event_id', part);
+      const { data, error } = await admin.from('calendar_events').select('id,google_event_id,group_id,local_dirty,hidden').eq('google_calendar_id', calId).in('google_event_id', part);
       if (error) throw new Error(error.message);
       for (const r of data ?? []) existing.set(r.google_event_id, r);
     }
     const { data: us } = await admin.from('user_settings').select('prefs').eq('id', true).maybeSingle();
     const rules = ((us?.prefs as Record<string, unknown> | null)?.titleRules ?? {}) as Record<string, string>;
-    const { data: groups } = await admin.from('study_groups').select('id,name').is('archived_at', null);
-    const byName = new Map((groups ?? []).map((x) => [norm(x.name), x.id]));
-    const guess = (title: string) => rules[title] ?? byName.get(norm(title)) ?? null;
+    const { data: groups } = await admin.from('study_groups').select('id,name,archived_at');
+    const liveIds = new Set((groups ?? []).map((x) => x.id)); // כלל ששייך לקבוצה שנמחקה לא יוצר שיוך (מונע הפרת מפתח זר)
+    const byName = new Map((groups ?? []).filter((x) => !x.archived_at).map((x) => [norm(x.name), x.id]));
+    const guess = (title: string) => { const r = rules[title]; return (r && liveIds.has(r) ? r : null) ?? byName.get(norm(title)) ?? null; };
 
     const toInsert: Record<string, unknown>[] = [], toUpdate: Record<string, unknown>[] = [], cancelIds: string[] = [];
     let skipped = 0;
@@ -126,7 +127,7 @@ async function sync(): Promise<Record<string, unknown>> {
         start_at: allDay ? zonedMidnight(e.start.date!, tz) : new Date(e.start.dateTime!).toISOString(),
         end_at: allDay ? zonedMidnight(e.end.date!, tz) : new Date(e.end.dateTime!).toISOString(),
       };
-      if (ex) { if (!ex.local_dirty) toUpdate.push({ ...row, id: ex.id, group_id: ex.group_id ?? guess(row.title) }); else skipped++; } // שינוי מקומי שלא נדחף לא נדרס
+      if (ex) { if (!ex.local_dirty) toUpdate.push({ ...row, id: ex.id, group_id: ex.group_id ?? (ex.hidden ? null : guess(row.title)) }); else skipped++; } // שינוי מקומי שלא נדחף לא נדרס
       else toInsert.push({ ...row, group_id: guess(row.title) });
     }
     for (const part of chunk(toInsert, 200)) { const { error } = await admin.from('calendar_events').upsert(part, { onConflict: 'google_calendar_id,google_event_id' }); if (error) throw new Error(error.message); }

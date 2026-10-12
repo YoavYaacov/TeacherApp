@@ -61,3 +61,8 @@ npx tsx scripts/test-backup-sql.ts   # SQL גיבוי/שחזור (PGlite)
 node scripts/gcal-test/run.mjs       # לוגיקת ייבוא Google (עם Google ו-DB מדומים)
 npm run contrast   # ניגודיות ערכות הנושא
 ```
+
+## ה. מחיקת קבוצה והסתרת אירועים (מיגרציה 0004)
+1. Supabase ← SQL Editor ← הדבק את `supabase/migrations/0004_group_cleanup.sql` ← Run (חייב לפני העדכון הבא של הפונקציה).
+2. Edge Functions ← google-calendar ← הדבק את `google-calendar-function.ts` המעודכן ← Deploy (Verify JWT נשאר כבוי).
+3. באפליקציה: קבוצה בארכיון ← עריכה ← "ניהול קבוצה בארכיון". לפני כל מחיקה נוצר גיבוי ידני אוטומטי.

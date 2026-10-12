@@ -7,6 +7,10 @@ export interface Repo {
   /** עדכון חלקי לפי id (שונה מ-upsert: לא דורש את כל העמודות החובה) */
   update<T extends TableName>(table: T, id: string, patch: Partial<DB[T][number]>): Promise<void>;
   remove(table: TableName, match: Record<string, unknown>): Promise<void>;
+  /** פעולות קבוצה בארכיון (0004). מחזירות סיכום; הלקוח טוען מחדש אחריהן. */
+  deleteGroup(groupId: string): Promise<{ events: { deleted: number; hidden: number }; students_deleted: number }>;
+  deleteGroupLessons(groupId: string): Promise<{ deleted: number; hidden: number }>;
+  restoreHiddenEvents(): Promise<number>;
   /** החלפת כל הנתונים (שחזור מגיבוי) — מקומי בלבד */
   replaceAll?(db: DB): Promise<void>;
 }

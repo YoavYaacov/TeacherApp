@@ -1,3 +1,4 @@
+import { shownEvents } from '../../lib/domain';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Cloud, Plus } from 'lucide-react';
 import { useStore } from '../../data/store';
@@ -43,7 +44,8 @@ export function CalendarPage() {
   const [week, setWeek] = useState(startOfWeek(new Date()));
   const [adding, setAdding] = useState(false);
   const groups = store.db.study_groups.filter((g) => !g.archived_at);
-  const hasSat = store.db.calendar_events.some((l) => { const d = new Date(l.start_at); return d.getDay() === 6 && iso(d) === iso(new Date(new Date(week).setDate(week.getDate() + 6))); });
+  const shown = shownEvents(store.db);
+  const hasSat = shown.some((l) => { const d = new Date(l.start_at); return d.getDay() === 6 && iso(d) === iso(new Date(new Date(week).setDate(week.getDate() + 6))); });
   const days = Array.from({ length: hasSat ? 7 : 6 }, (_, i) => { const d = new Date(week); d.setDate(d.getDate() + i); return d; });
   const shift = (n: number) => { const d = new Date(week); d.setDate(d.getDate() + n * 7); setWeek(d); };
   const name = (id: string | null, title: string) => store.db.study_groups.find((g) => g.id === id)?.name ?? title;
@@ -59,7 +61,7 @@ export function CalendarPage() {
         <strong>{days[0].toLocaleDateString('he-IL')} – {days[days.length - 1].toLocaleDateString('he-IL')}</strong>
       </div>
       <div className="weekgrid" style={{ ['--cols' as string]: days.length }}>{days.map((d, i) => {
-        const items = store.db.calendar_events.filter((l) => iso(new Date(l.start_at)) === iso(d)).sort((a, b) => a.start_at.localeCompare(b.start_at));
+        const items = shown.filter((l) => iso(new Date(l.start_at)) === iso(d)).sort((a, b) => a.start_at.localeCompare(b.start_at));
         const isToday = iso(d) === iso(new Date());
         return (
           <section key={i} className={`card day${isToday ? ' today' : ''}`}>

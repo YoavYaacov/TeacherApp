@@ -181,3 +181,9 @@ table.gb { border-collapse: separate; border-spacing: 0; width: max-content; min
   .dt.students th:nth-child(3), .dt.students td:nth-child(3) { display: none; } /* תאריך הצטרפות: פחות חשוב במסך צר */
   .dt td.actions { padding-inline-end: 8px; }
 }
+
+/* אזור פעולות הרסניות (קבוצה בארכיון) */
+.danger-zone { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.danger-zone h3 { margin: 0 0 10px; font-size: 16px; }
+.btn.danger { background: var(--bad-bg); color: var(--bad-ink); border-color: var(--bad-ink); }
+.btn.danger:disabled { opacity: .5; }

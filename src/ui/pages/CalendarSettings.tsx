@@ -60,6 +60,12 @@ export function CalendarSettings() {
     try { for (const d of mergeable) await mergePair(store, d); setMsg(`אוחדו ${mergeable.length} שיעורים.`); } catch (e) { setMsg(`האיחוד נעצר: ${(e as Error).message}`); }
     setBusy(false);
   };
+  const hiddenCount = store.db.calendar_events.filter((e) => e.hidden).length;
+  const restoreHidden = async () => {
+    setBusy(true); setMsg('');
+    try { const n = await store.repo.restoreHiddenEvents(); await store.reload(); setMsg(`הוחזרו ${n} אירועים ליומן.`); } catch (e) { setMsg(`השחזור נכשל: ${(e as Error).message}`); }
+    setBusy(false);
+  };
   const needReauth = st.lastError === 'reauth_required';
   const imported = store.db.calendar_events.filter((e) => e.source === 'google').length;
   return <>
@@ -81,6 +87,10 @@ export function CalendarSettings() {
           <button className="btn primary" disabled={busy} onClick={runSync}><RefreshCw size={16} aria-hidden />ייבא עכשיו</button>
           <button className="btn" disabled={busy} onClick={() => setSt({ ...st, calendar: null })}>החלף יומן</button>
           <button className="btn" disabled={busy} onClick={disconnect}>נתק</button></div>
+        {hiddenCount > 0 && <div style={{ marginTop: 16 }}>
+          <p><strong>{hiddenCount}</strong> אירועים מוסתרים (מקבוצות שנמחקו). אפשר להחזיר אותם ליומן כאירועים לא משויכים.</p>
+          <button className="btn" disabled={busy} onClick={restoreHidden}>החזר אירועים מוסתרים</button>
+        </div>}
         {dups.length > 0 && <div style={{ marginTop: 16 }}>
           <p><strong>{dups.length}</strong> שיעורים פנימיים קיימים גם ב-Google (אותה שעה ואותה קבוצה). כדי למנוע כפילויות אפשר לאחד אותם: התיעוד נשמר ועובר לאירוע ב-Google.{dups.length > mergeable.length && ` ${dups.length - mergeable.length} מהם לא יאוחדו כי בשני האירועים יש תיעוד; אותם יש להכריע ידנית.`}</p>
           <button className="btn" disabled={busy || mergeable.length === 0} onClick={mergeAll}>אחד {mergeable.length} שיעורים</button>

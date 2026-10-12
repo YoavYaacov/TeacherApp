@@ -1,6 +1,6 @@
 import { SortTh, sortRows, useSort } from '../sort';
 import { useState } from 'react';
-import { BookOpen, ClipboardList, Pencil, Plus, Users, type LucideIcon } from 'lucide-react';
+import { BookOpen, ClipboardList, Pencil, Plus, Trash2, Users, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { useNav } from '../nav';
 import { Modal } from '../Modal';
@@ -77,10 +77,61 @@ function GroupForm({ group, onClose, onSaved }: { group?: StudyGroup; onClose: (
         <div className="row"><button className="btn primary" disabled={!name.trim() || issues.length > 0} onClick={submit}>שמור</button>
           {group && (group.archived_at
             ? <button className="btn" onClick={async () => { await store.patch('study_groups', group.id, { archived_at: null }); onClose(); }}>שחזר מהארכיון</button>
-            : <button className="btn" onClick={async () => { if (confirm('להעביר את הקבוצה לארכיון? הנתונים נשמרים וניתן לשחזר.')) { await store.patch('study_groups', group.id, { archived_at: new Date().toISOString() }); onClose(); } }}>העבר לארכיון</button>)}
+            : <button className="btn" onClick={async () => { if (confirm('להעביר את הקבוצה לארכיון?\nהנתונים נשמרים, ושיעורי הקבוצה יוסתרו מהיומן עד לשחזור. ניתן לשחזר בכל עת.')) { await store.patch('study_groups', group.id, { archived_at: new Date().toISOString() }); onClose(); } }}>העבר לארכיון</button>)}
         </div>
+        {group?.archived_at && <DangerZone group={group} onClose={onClose} />}
       </div>
     </Modal>
+  );
+}
+
+/** פעולות הרסניות; מוצגות רק לקבוצה בארכיון. אין מחיקה אחת-לחיצה: צריך להקליד את שם הקבוצה. */
+function DangerZone({ group, onClose }: { group: StudyGroup; onClose: () => void }) {
+  const store = useStore();
+  const { go } = useNav();
+  const [mode, setMode] = useState<null | 'lessons' | 'group'>(null);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const evs = store.db.calendar_events.filter((e) => e.group_id === group.id);
+  const nInternal = evs.filter((e) => e.source === 'internal').length;
+  const nStud = store.db.enrollments.filter((e) => e.group_id === group.id).length;
+  const nGrades = store.db.grades.filter((x) => store.db.assessment_events.some((a) => a.id === x.event_id && a.group_id === group.id)).length;
+  const run = async () => {
+    setBusy(true); setErr('');
+    try {
+      if (mode === 'lessons') { await store.repo.deleteGroupLessons(group.id); await store.reload(); onClose(); return; }
+      await store.repo.deleteGroup(group.id);
+      // ניקוי כללי שיוך (כותרת → קבוצה) שהצביעו על הקבוצה שנמחקה
+      const cur = store.db.user_settings[0];
+      const rules = (cur?.prefs?.titleRules ?? {}) as Record<string, string>;
+      if (Object.values(rules).includes(group.id)) {
+        const next = Object.fromEntries(Object.entries(rules).filter(([, v]) => v !== group.id));
+        await store.repo.upsert('user_settings', [{ id: true, theme: cur?.theme ?? 'sky-blue', prefs: { ...(cur?.prefs ?? {}), titleRules: next } }]);
+      }
+      await store.reload(); onClose(); go('groups');
+    } catch (e) { setErr(`הפעולה נכשלה ושום דבר לא נמחק: ${(e as Error).message}`); setBusy(false); }
+  };
+  const ok = typed.trim() === group.name;
+  return (
+    <div className="danger-zone">
+      <h3>ניהול קבוצה בארכיון</h3>
+      {!mode && <div className="row">
+        <button className="btn" onClick={() => { setMode('lessons'); setTyped(''); }}><Trash2 size={16} aria-hidden />מחק את שיעורי הקבוצה</button>
+        <button className="btn danger" onClick={() => { setMode('group'); setTyped(''); }}><Trash2 size={16} aria-hidden />מחק קבוצה לצמיתות</button>
+      </div>}
+      {!mode && <p className="muted">שיעורי הקבוצה בארכיון מוסתרים אוטומטית מהיומן ומהדף הראשי, וחוזרים כשמשחזרים את הקבוצה. מחיקה היא פעולה נפרדת.</p>}
+      {mode && <>
+        <p>{mode === 'lessons'
+          ? `יימחקו ${nInternal} שיעורים פנימיים עם התיעוד שלהם. ${evs.length - nInternal} אירועים מ-Google יוסרו מהקבוצה ויוסתרו (לא משתנה דבר ב-Google, ואפשר להחזיר אותם בהגדרות היומן). הקבוצה, התלמידים והציונים נשארים.`
+          : `יימחקו לצמיתות: הקבוצה, ${nStud} רישומי תלמידים (תלמיד שאינו בקבוצה אחרת יימחק לגמרי), ${nGrades} ציונים, הגדרות הציונים וה${nInternal} שיעורים הפנימיים עם התיעוד. אירועי Google של הקבוצה יוסתרו ולא יימחקו מ-Google.`}</p>
+        <p className="muted">לפני המחיקה נוצר אוטומטית גיבוי בתוך המערכת, ואפשר לשחזר ממנו דרך הגדרות ← גיבוי ושחזור.</p>
+        <label className="field">להמשך, הקלד את שם הקבוצה: <strong>{group.name}</strong><input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} /></label>
+        {err && <p className="issue" role="alert">{err}</p>}
+        <div className="row"><button className="btn danger" disabled={!ok || busy} onClick={run}>{busy ? 'מוחק…' : mode === 'lessons' ? 'מחק שיעורים' : 'מחק קבוצה לצמיתות'}</button>
+          <button className="btn" disabled={busy} onClick={() => setMode(null)}>ביטול</button></div>
+      </>}
+    </div>
   );
 }
 

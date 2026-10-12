@@ -5,6 +5,12 @@ export const activeEnrollments = (db: DB, groupId: string) => db.enrollments.fil
 export const activeStudents = (db: DB, groupId: string): Student[] =>
   activeEnrollments(db, groupId).map((e) => db.students.find((s) => s.id === e.student_id)).filter((s): s is Student => !!s);
 
+/** אירועי יומן שמוצגים: לא מוסתרים, ולא של קבוצה שבארכיון (חוזרים כשהקבוצה משוחזרת). */
+export const shownEvents = (db: DB) => {
+  const archived = new Set(db.study_groups.filter((g) => g.archived_at).map((g) => g.id));
+  return db.calendar_events.filter((e) => !e.hidden && !(e.group_id && archived.has(e.group_id)));
+};
+
 export function defaultYear(now = new Date()): Omit<AcademicYear, 'id' | 'archived_at'> {
   const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
   return {
