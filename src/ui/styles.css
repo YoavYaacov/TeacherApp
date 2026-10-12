@@ -21,8 +21,8 @@ p { margin: 0 0 12px; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 24px; }
 .brand-ic { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); flex: none; }
 .brand strong { display: block; font-size: 16px; } .brand small { display: block; font-size: 12px; opacity: .8; }
-.nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 999px; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: start; font-size: 15px; }
-.nav-item:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+.nav-item { -webkit-tap-highlight-color: transparent; touch-action: manipulation; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 999px; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: start; font-size: 15px; }
+@media (hover: hover) { .nav-item:hover { background: color-mix(in srgb, currentColor 10%, transparent); } }
 .nav-item[aria-current='page'], .nav-item[aria-current='true'] { background: color-mix(in srgb, currentColor 16%, transparent); font-weight: 600; }
 .shell { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .topbar { height: 56px; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 0 32px; border-bottom: 1px solid var(--border); background: var(--surface); font-size: 14px; }
@@ -235,7 +235,9 @@ math { font-size: 1.05em; }
   .page.chatpage { height: calc(100dvh - 56px - 68px); }
   .chat { padding: 10px 14px 8px; }
   .quick { grid-template-columns: 1fr 1fr; gap: 8px; } .quick-btn { padding: 10px 6px; } .quick-btn small { display: none; }
-  .bottomnav .nav-ai { flex: 0 0 64px; }
+  .bottomnav .nav-item:focus:not(:focus-visible) { outline: none; }
+  .bottomnav .nav-ai { flex: 0 0 76px; white-space: nowrap; background: transparent !important; }
+  .bottomnav .nav-ai[aria-current='page'] { font-weight: 600; }
   .bottomnav .nav-ai svg { background: var(--accent); color: var(--on-accent); width: 44px; height: 44px; padding: 10px; border-radius: 50%; margin-top: -22px; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
   .bottomnav .nav-ai[aria-current='page'] svg { outline: 3px solid color-mix(in srgb, var(--accent, #2563eb) 40%, transparent); }
 }
