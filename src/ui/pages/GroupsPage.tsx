@@ -1,5 +1,5 @@
 import { SortTh, sortRows, useSort } from '../sort';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BookOpen, ClipboardList, Pencil, Plus, Sparkles, Trash2, Users, type LucideIcon } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { useNav } from '../nav';
@@ -10,6 +10,7 @@ import type { StudyGroup } from '../../data/types';
 import { LessonsTab } from './LessonsTab';
 import { StudentsTab } from './StudentsTab';
 import { GradesTab } from './GradesTab';
+import { boot, saveView } from '../viewState';
 
 export function GroupsPage() {
   const { groupId } = useNav();
@@ -93,6 +94,8 @@ function DangerZone({ group, onClose }: { group: StudyGroup; onClose: () => void
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const confirmRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (mode) { confirmRef.current?.focus({ preventScroll: true }); confirmRef.current?.scrollIntoView({ block: 'center' }); } }, [mode]);
   const evs = store.db.calendar_events.filter((e) => e.group_id === group.id);
   const nInternal = evs.filter((e) => e.source === 'internal').length;
   const nStud = store.db.enrollments.filter((e) => e.group_id === group.id).length;
@@ -126,9 +129,9 @@ function DangerZone({ group, onClose }: { group: StudyGroup; onClose: () => void
           ? `יימחקו ${nInternal} שיעורים פנימיים עם התיעוד שלהם. ${evs.length - nInternal} אירועים מ-Google יוסרו מהקבוצה ויוסתרו (לא משתנה דבר ב-Google, ואפשר להחזיר אותם בהגדרות היומן). הקבוצה, התלמידים והציונים נשארים.`
           : `יימחקו לצמיתות: הקבוצה, ${nStud} רישומי תלמידים (תלמיד שאינו בקבוצה אחרת יימחק לגמרי), ${nGrades} ציונים, הגדרות הציונים וה${nInternal} שיעורים הפנימיים עם התיעוד. אירועי Google של הקבוצה יוסתרו ולא יימחקו מ-Google.`}</p>
         <p className="muted">לפני המחיקה נוצר אוטומטית גיבוי בתוך המערכת, ואפשר לשחזר ממנו דרך הגדרות ← גיבוי ושחזור.</p>
-        <label className="field">להמשך, הקלד את שם הקבוצה: <strong>{group.name}</strong><input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} /></label>
+        <label className="field dz-confirm">להמשך, הקלד את שם הקבוצה: <strong>{group.name}</strong><input className="input" ref={confirmRef} value={typed} onChange={(e) => setTyped(e.target.value)} /></label>
         {err && <p className="issue" role="alert">{err}</p>}
-        <div className="row"><button className="btn danger" disabled={!ok || busy} onClick={run}>{busy ? 'מוחק…' : mode === 'lessons' ? 'מחק שיעורים' : 'מחק קבוצה לצמיתות'}</button>
+        <div className="dz-actions"><button className="btn danger" disabled={!ok || busy} onClick={run}>{busy ? 'מוחק…' : mode === 'lessons' ? 'מחק שיעורים' : 'מחק קבוצה לצמיתות'}</button>
           <button className="btn" disabled={busy} onClick={() => setMode(null)}>ביטול</button></div>
       </>}
     </div>
@@ -136,12 +139,14 @@ function DangerZone({ group, onClose }: { group: StudyGroup; onClose: () => void
 }
 
 type GroupTab = 'lessons' | 'students' | 'grades';
+let restoreTab: { tab: GroupTab; group: string } | null = boot.tab && boot.tabGroup ? { tab: boot.tab as GroupTab, group: boot.tabGroup } : null; // שחזור אחרי רענון, פעם אחת
 let keepTab: GroupTab | null = null; // מעבר בין קבוצות שומר את הלשונית הנוכחית; כניסה מהרשימה תמיד לשיעורים
 function GroupPage({ id }: { id: string }) {
   const store = useStore();
   const { go, openAssistant } = useNav();
   const group = store.db.study_groups.find((g) => g.id === id);
-  const [tab, setTab] = useState<GroupTab>(() => { const t = keepTab ?? 'lessons'; keepTab = null; return t; }); // ברירת מחדל בכניסה: שיעורים
+  const [tab, setTabRaw] = useState<GroupTab>(() => { const r = restoreTab && restoreTab.group === id ? restoreTab.tab : null; restoreTab = null; const t = keepTab ?? r ?? 'lessons'; keepTab = null; saveView({ tab: t, tabGroup: id }); return t; });
+  const setTab = (t: GroupTab) => { setTabRaw(t); saveView({ tab: t, tabGroup: id }); }; // ברירת מחדל בכניסה: שיעורים
   const [editing, setEditing] = useState(false);
   if (!group) return <p>הקבוצה לא נמצאה. <button className="btn sm" onClick={() => go('groups')}>חזרה</button></p>;
   const others = store.db.study_groups.filter((g) => !g.archived_at && g.id !== id).sort((a, b) => a.name.localeCompare(b.name, 'he'));

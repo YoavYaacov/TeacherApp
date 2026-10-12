@@ -31,4 +31,8 @@ export function applyTheme(id: ThemeId) {
   };
   Object.entries(map).forEach(([k, v]) => s.setProperty(k, v));
   document.documentElement.dataset.theme = t.id;
+  // צבע סרגל החלון / שורת המצב (PWA והדפדפן): תואם לצבע הסרגל העליון של הערכה הפעילה. ה-manifest סטטי ולכן משמש רק למסך פתיחה.
+  let m = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
+  m.content = t.surface;
 }

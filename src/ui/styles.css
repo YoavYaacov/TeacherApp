@@ -243,3 +243,13 @@ math { font-size: 1.05em; }
 .insight{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0}
 .insight-actions{display:flex;gap:8px;align-items:center;flex:none}
 .iconbtn{background:none;border:0;cursor:pointer;color:var(--muted,#667);padding:6px;min-width:32px;min-height:32px}
+
+/* אזור פעולות הרסניות: ריווח, הפרדה ופעולות דבוקות לתחתית החלון (בלי גלילה כדי להגיע אליהן) */
+.danger-zone p { margin: 0 0 14px; line-height: 1.6; }
+.danger-zone .dz-confirm { margin: 18px 0 8px; display: grid; gap: 8px; }
+.danger-zone .dz-actions { position: sticky; bottom: -28px; display: flex; gap: 12px; flex-wrap: wrap; margin: 20px -28px -28px; padding: 16px 28px 20px; background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -8px 12px -10px rgba(0,0,0,.18); }
+@media (max-width: 760px) {
+  .danger-zone .dz-actions { flex-direction: column-reverse; }
+  .danger-zone .dz-actions .btn { width: 100%; justify-content: center; min-height: 44px; }
+}
+.danger-zone .dz-confirm input { scroll-margin-bottom: 110px; }

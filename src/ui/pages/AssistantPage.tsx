@@ -15,6 +15,7 @@ import { MessageBlocks, Sources, AiActionsCtx } from './ChatBits';
 import { regenerateEvaluation } from '../../ai/tasks';
 import type { AiDraft } from '../../data/types';
 import { Wizard, type TaskKind } from './AiWizards';
+import { boot, saveView } from '../viewState';
 
 const ctxTitle = (db: ReturnType<typeof useStore>['db'], c: AiContext) => {
   if (c.kind === 'system') return 'כל המערכת';
@@ -45,7 +46,9 @@ export function AssistantPage() {
   const convs = useMemo(() => [...db.ai_conversations].sort((a, b) => b.updated_at.localeCompare(a.updated_at)), [db.ai_conversations]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftCtx, setDraftCtx] = useState<AiContext>({ kind: 'system' });
-  const [text, setText] = useState('');
+  const [text, setText] = useState(() => boot.chatText ?? '');
+  useEffect(() => { saveView({ chatText: text }); }, [text]);
+  useEffect(() => { saveView({ convId: activeId }); }, [activeId]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ message: string; blocked?: boolean } | null>(null);
   const [showHist, setShowHist] = useState(false);
@@ -66,6 +69,7 @@ export function AssistantPage() {
   // כניסה מכרטיס (תלמיד/קבוצה/שיעור): שיחה חדשה בהקשר הזה
   useEffect(() => {
     if (aiCtx) { setActiveId(null); setDraftCtx(aiCtx); clearAiCtx(); setErr(null); }
+    else if (!activeId && boot.convId && convs.some((c) => c.id === boot.convId)) setActiveId(boot.convId);
     else if (!activeId && convs[0] && Date.now() - new Date(convs[0].updated_at).getTime() < 6 * 3600000) setActiveId(convs[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

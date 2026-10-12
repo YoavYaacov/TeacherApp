@@ -24,14 +24,16 @@ function AuthGate() {
   const [owner, setOwner] = useState<boolean | null>(null);
   useEffect(() => {
     void sb.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
+    // Supabase משדר SIGNED_IN/TOKEN_REFRESHED בכל חזרה לחלון. אם אותו משתמש, לא מחליפים את הסשן ולא מפעילים בדיקת הרשאה מחדש (זה מה שאיפס את האפליקציה).
+    const { data: sub } = sb.auth.onAuthStateChange((_e, s) => setSession((prev) => (prev && s && prev.user.id === s.user.id ? prev : s)));
     return () => sub.subscription.unsubscribe();
   }, [sb]);
+  const userId = session?.user.id ?? null;
   useEffect(() => {
     setOwner(null);
-    if (!session) return;
+    if (!userId) return;
     void sb.rpc('is_owner').then(({ data, error }) => setOwner(!error && data === true));
-  }, [session, sb]);
+  }, [userId, sb]);
   const repo = useMemo(() => new SupabaseRepo(sb), [sb]);
 
   if (session === undefined) return <div className="center-screen">טוען…</div>;

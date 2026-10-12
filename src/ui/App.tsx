@@ -6,6 +6,7 @@ import { useStore } from '../data/store';
 import { applyTheme, type ThemeId } from './themes';
 import { NavCtx, type Page } from './nav';
 import type { AiContext } from '../data/types';
+import { boot, saveView } from './viewState';
 import { AssistantPage } from './pages/AssistantPage';
 import { HomePage } from './pages/HomePage';
 import { GroupsPage } from './pages/GroupsPage';
@@ -32,8 +33,12 @@ const BOTTOM: NavItem[] = [HOME, GROUPS, AI, CAL, SET];                         
 export function App({ userEmail, signOut }: { userEmail: string | null; signOut: (() => void) | null }) {
   const store = useStore();
   const { db, ready, error, saving, kind } = store;
-  const [page, setPage] = useState<Page>(BOOT_GOOGLE ? 'settings' : 'home');
-  const [groupId, setGroupId] = useState<string | null>(null);
+  const PAGES: Page[] = ['home', 'groups', 'calendar', 'settings', 'assistant'];
+  const [page, setPage] = useState<Page>(BOOT_GOOGLE ? 'settings' : PAGES.includes(boot.page as Page) ? (boot.page as Page) : 'home');
+  const [groupId, setGroupId] = useState<string | null>(BOOT_GOOGLE ? null : boot.groupId ?? null);
+  useEffect(() => { saveView({ page, groupId }); }, [page, groupId]);
+  // קבוצה ששוחזרה ואינה קיימת עוד: חוזרים לרשימת הקבוצות
+  useEffect(() => { if (ready && groupId && !db.study_groups.some((g) => g.id === groupId)) { setGroupId(null); } }, [ready, groupId, db.study_groups]);
   const go = useCallback((p: Page, g: string | null = null) => { setPage(p); setGroupId(g); }, []);
   const [aiCtx, setAiCtx] = useState<AiContext | null>(null);
   const openAssistant = useCallback((ctx?: AiContext) => { setAiCtx(ctx ?? null); setPage('assistant'); setGroupId(null); }, []);
