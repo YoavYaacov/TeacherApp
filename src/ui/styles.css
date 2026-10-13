@@ -215,8 +215,8 @@ table.gb { border-collapse: separate; border-spacing: 0; width: max-content; min
 .hist .list li { display: flex; align-items: center; gap: 8px; }
 .chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 8px 2px; }
 .chat-empty { margin: 0 auto; text-align: center; max-width: 720px; }
-.quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
-.quick-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 10px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; }
+.quick { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 16px 0; }
+.quick-btn { flex: 0 1 220px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 10px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; }
 @media (hover: hover) { .quick-btn:hover { border-color: var(--accent-text, var(--ink)); } }
 .quick-btn small { color: var(--muted); font-size: 12px; }
 .examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -247,7 +247,7 @@ math { font-size: 1.05em; }
 @media (max-width: 860px) {
   .page.chatpage { height: calc(100dvh - 56px - 68px); }
   .chat { padding: 10px 14px 8px; }
-  .quick { grid-template-columns: 1fr 1fr; gap: 8px; } .quick-btn { padding: 10px 6px; } .quick-btn small { display: none; }
+  .quick { gap: 8px; } .quick-btn { flex: 0 0 calc(50% - 4px); padding: 10px 6px; } .quick-btn small { display: none; }
   .bottomnav .nav-item:focus:not(:focus-visible) { outline: none; }
   .bottomnav .nav-ai { flex: 0 0 76px; white-space: nowrap; background: transparent !important; }
   .bottomnav .nav-ai[aria-current='page'] { font-weight: 600; }
@@ -350,3 +350,9 @@ html:not([data-anim='off']) .seg > button, html:not([data-anim='off']) .mini-seg
   html[data-anim='full'] .seg > button:hover, html[data-anim='full'] .mini-seg > button:hover { transform: scale(1.06); }
   .bottomnav .nav-ai:hover svg { background: var(--accent-hover); }
 }
+
+/* הקשר השיחה: שדה עם תווית צפה; מונה הבקשות בתחתית */
+.field.fl.ctx { display: block; }
+.field.fl.ctx > .chip { min-height: 42px; border-radius: 16px; padding-inline: 16px; border-color: color-mix(in srgb, var(--muted) 55%, var(--surface)); }
+.chat-ctx { margin: 14px 0 8px; }
+.usage-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 4px 4px 0; line-height: 1.4; }
