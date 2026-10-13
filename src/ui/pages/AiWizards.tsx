@@ -42,7 +42,7 @@ interface FP extends WizardProps { env(c: AiConversation): TaskEnv; run(t: strin
 
 function GroupSelect({ value, onChange, optional }: { value: string; onChange(v: string): void; optional?: boolean }) {
   const { db } = useStore(); const gs = db.study_groups.filter((g) => !g.archived_at);
-  return <label className="field">קבוצה<select className="input" value={value} onChange={(e) => onChange(e.target.value)}>{optional && <option value="">ללא קבוצה מסוימת</option>}{!optional && !value && <option value="">בחר…</option>}{gs.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>;
+  return <label className="field fl"><span>קבוצה</span><select className="input" value={value} onChange={(e) => onChange(e.target.value)}>{optional && <option value="">ללא קבוצה מסוימת</option>}{!optional && !value && <option value="">בחר…</option>}{gs.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>;
 }
 const Blocked = ({ show }: { show: boolean }) => show ? <p className="note-banner">המכסה היומית של ה-AI נגמרה. אפשר עדיין לראות את החישובים, אבל הניסוח המילולי לא יהיה זמין עד שהמכסה תתחדש.</p> : null;
 const Note = () => <p className="muted small">למודל נשלחים נתונים בכינויים בלבד (בלי שמות), ושמות שתכתוב כאן מוחלפים אוטומטית. הערות פרטיות לשיעורים לא נשלחות לעולם.</p>;
@@ -51,7 +51,7 @@ function ClassForm({ ctx, run, blocked, prefs }: FP) {
   const { db } = useStore(); const [gid, setGid] = useState(ctxGroup(ctx)); const g = db.study_groups.find((x) => x.id === gid);
   const [term, setTerm] = useState<0 | 1 | 2>(0);
   return <div className="form"><Blocked show={blocked} /><GroupSelect value={gid} onChange={setGid} />
-    <label className="field">מחצית<select className="input" value={term} onChange={(e) => setTerm(Number(e.target.value) as 0 | 1 | 2)}><option value={0}>המחצית הפעילה{g ? ` (${activeTerm(groupYear(db, g)) === 1 ? 'א׳' : 'ב׳'})` : ''}</option><option value={1}>מחצית א׳</option><option value={2}>מחצית ב׳</option></select></label>
+    <label className="field fl"><span>מחצית</span><select className="input" value={term} onChange={(e) => setTerm(Number(e.target.value) as 0 | 1 | 2)}><option value={0}>המחצית הפעילה{g ? ` (${activeTerm(groupYear(db, g)) === 1 ? 'א׳' : 'ב׳'})` : ''}</option><option value={1}>מחצית א׳</option><option value={2}>מחצית ב׳</option></select></label>
     {prefs.level === 'A' && <p className="muted small">רמת פרטיות א׳: למודל נשלחים נתונים מצטברים בלבד.</p>}<Note />
     <button className="btn primary" disabled={!g} onClick={() => run(`נתח את הכיתה ${g!.name}${term ? ` (מחצית ${term === 1 ? 'א׳' : 'ב׳'})` : ''}`, (e) => classAnalysis(e, { groupId: g!.id, term: term || undefined }))}>נתח</button></div>;
 }
@@ -61,7 +61,7 @@ function StudentForm({ ctx, run, prefs }: FP) {
   const [sid, setSid] = useState(ctxStudent(ctx)); const s = studs.find((x) => x.id === sid);
   return <div className="form">{prefs.level === 'A' && <p className="issue" role="alert">ניתוח תלמיד דורש לשלוח למודל את נתוני התלמיד בכינוי. הפעל רמת פרטיות ב׳ בהגדרות העוזר.</p>}
     <GroupSelect value={gid} onChange={(v) => { setGid(v); setSid(''); }} />
-    <label className="field">תלמיד<select className="input" value={sid} onChange={(e) => setSid(e.target.value)}><option value="">בחר…</option>{studs.map((x) => <option key={x.id} value={x.id}>{label(x)}</option>)}</select></label><Note />
+    <label className="field fl"><span>תלמיד</span><select className="input" value={sid} onChange={(e) => setSid(e.target.value)}><option value="">בחר…</option>{studs.map((x) => <option key={x.id} value={x.id}>{label(x)}</option>)}</select></label><Note />
     <button className="btn primary" disabled={!s || prefs.level === 'A'} onClick={() => run(`בנה לי תיק תלמיד חכם עבור ${label(s!)}`, (e) => studentFile(e, { groupId: gid, studentId: s!.id }))}>בנה תיק</button></div>;
 }
 
@@ -86,13 +86,13 @@ function EvalForm({ ctx, run, prefs, blocked }: FP) {
   };
   if (prefs.level === 'A') return <p className="issue" role="alert">הערכות אישיות דורשות לשלוח למודל נתוני תלמידים בכינויים. הפעל רמת פרטיות ב׳ בהגדרות העוזר.</p>;
   return <div className="form"><Blocked show={blocked} /><GroupSelect value={gid} onChange={(v) => { setGid(v); setSid(''); }} />
-    <div className="row"><label className="field">תקופה<select className="input" value={period} onChange={(e) => setPeriod(e.target.value as typeof period)}><option value="h1">מחצית א׳</option><option value="h2">מחצית ב׳</option><option value="annual">שנתי</option></select></label>
-      <label className="field">עבור<select className="input" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)}><option value="all">כל הכיתה</option><option value="one">תלמיד אחד</option></select></label></div>
-    {scope === 'one' && <><label className="field">תלמיד<select className="input" value={sid} onChange={(e) => setSid(e.target.value)}><option value="">בחר…</option>{studs.map((x) => <option key={x.id} value={x.id}>{label(x)}</option>)}</select></label>
+    <div className="row"><label className="field fl"><span>תקופה</span><select className="input" value={period} onChange={(e) => setPeriod(e.target.value as typeof period)}><option value="h1">מחצית א׳</option><option value="h2">מחצית ב׳</option><option value="annual">שנתי</option></select></label>
+      <label className="field fl"><span>עבור</span><select className="input" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)}><option value="all">כל הכיתה</option><option value="one">תלמיד אחד</option></select></label></div>
+    {scope === 'one' && <><label className="field fl"><span>תלמיד</span><select className="input" value={sid} onChange={(e) => setSid(e.target.value)}><option value="">בחר…</option>{studs.map((x) => <option key={x.id} value={x.id}>{label(x)}</option>)}</select></label>
       <label className="field">מידע נוסף שתרצה שייכלל (אופציונלי: דברים שאתה יודע על התלמיד)<textarea className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></label></>}
-    <div className="row"><label className="field">סגנון<select className="input" value={style} onChange={(e) => setStyle(e.target.value as typeof style)}><option value="encouraging">מעודד</option><option value="factual">עובדתי</option><option value="professional">מקצועי</option><option value="personal">אישי</option></select></label>
-      <label className="field">אורך<select className="input" value={length} onChange={(e) => setLength(e.target.value as typeof length)}><option value="short">קצר</option><option value="medium">בינוני</option><option value="detailed">מפורט</option></select></label>
-      <label className="field">גוף<select className="input" value={voice} onChange={(e) => setVoice(e.target.value as typeof voice)}><option value="third">גוף שלישי</option><option value="direct">פנייה לתלמיד</option></select></label></div>
+    <div className="row"><label className="field fl"><span>סגנון</span><select className="input" value={style} onChange={(e) => setStyle(e.target.value as typeof style)}><option value="encouraging">מעודד</option><option value="factual">עובדתי</option><option value="professional">מקצועי</option><option value="personal">אישי</option></select></label>
+      <label className="field fl"><span>אורך</span><select className="input" value={length} onChange={(e) => setLength(e.target.value as typeof length)}><option value="short">קצר</option><option value="medium">בינוני</option><option value="detailed">מפורט</option></select></label>
+      <label className="field fl"><span>גוף</span><select className="input" value={voice} onChange={(e) => setVoice(e.target.value as typeof voice)}><option value="third">גוף שלישי</option><option value="direct">פנייה לתלמיד</option></select></label></div>
     <label className="row"><input type="checkbox" checked={saveDefault} onChange={(e) => setSaveDefault(e.target.checked)} /> זכור כברירת מחדל</label>
     {noGender.length > 0 && <details open><summary>מגדר חסר ל-{noGender.length} תלמידים (נדרש לניסוח בעברית)</summary>
       <p className="muted small">ההצעה נגזרת מהשם הפרטי בלבד; תקן לפי הצורך. בלי בחירה ינוסח ניטרלית. הבחירה נשמרת בכרטיס התלמיד.</p>
@@ -110,7 +110,7 @@ function PlanForm({ ctx, run, blocked }: FP) {
     <label className="field">שכבה / רמה<input className="input" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="למשל: י׳ 5 יח״ל" /></label>
     <label className="field">נושא<input className="input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="למשל: משוואות ריבועיות" />{recent.length > 0 && <small className="muted">נושאים שתועדו לאחרונה: {recent.map((t) => <button key={t} className="chip" onClick={() => setTopic(t)}>{t}</button>)}</small>}</label>
     <div className="row"><label className="field">משך (דקות)<input className="input" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} /></label>
-      <label className="field">רמת הכיתה<select className="input" value={cl} onChange={(e) => setCl(e.target.value as typeof cl)}><option value="weak">חלשה</option><option value="regular">רגילה</option><option value="strong">חזקה</option><option value="mixed">מעורבת</option></select></label></div>
+      <label className="field fl"><span>רמת הכיתה</span><select className="input" value={cl} onChange={(e) => setCl(e.target.value as typeof cl)}><option value="weak">חלשה</option><option value="regular">רגילה</option><option value="strong">חזקה</option><option value="mixed">מעורבת</option></select></label></div>
     <label className="field">מטרות (אופציונלי)<textarea className="input" rows={2} value={goals} onChange={(e) => setGoals(e.target.value)} /></label>
     <label className="field">הערות מיוחדות (אופציונלי)<textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
     <label className="row"><input type="checkbox" checked={hw} onChange={(e) => setHw(e.target.checked)} /> כלול שיעורי בית</label>
@@ -142,7 +142,7 @@ function SummaryForm({ ctx, run, blocked }: FP) {
   return <div className="form"><Blocked show={blocked} /><div className="seg" role="group" aria-label="סוג סיכום"><button aria-pressed={mode === 'lesson'} onClick={() => setMode('lesson')}>תיעוד שיעור מהערות</button><button aria-pressed={mode === 'period'} onClick={() => setMode('period')}>סיכום תקופה</button></div>
     <GroupSelect value={gid} onChange={(v) => { setGid(v); setEid(''); }} />
     {mode === 'lesson' ? <>
-      <label className="field">שיעור<select className="input" value={ev?.id ?? ''} onChange={(e) => setEid(e.target.value)}>{past.map((e) => <option key={e.id} value={e.id}>{fmtDay(e.start_at)} · {new Date(e.start_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</option>)}</select></label>
+      <label className="field fl"><span>שיעור</span><select className="input" value={ev?.id ?? ''} onChange={(e) => setEid(e.target.value)}>{past.map((e) => <option key={e.id} value={e.id}>{fmtDay(e.start_at)} · {new Date(e.start_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</option>)}</select></label>
       <label className="field">הערות חופשיות על השיעור<textarea className="input" rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="מה למדנו, מה היה קשה, מה מתוכנן להמשך…" /></label>
       <p className="muted small">אארגן רק את מה שכתבת, בלי להוסיף. תקבל טיוטה לעריכה, ותיעוד קיים לא יידרס בלי אישורך.</p><Note />
       <button className="btn primary" disabled={!ev || !notes.trim()} onClick={() => run(`ארגן לי תיעוד לשיעור ${fmtDay(ev!.start_at)} של ${g?.name}`, (e) => lessonSummaryDraft(e, { eventId: ev!.id, notes }))}>הכן טיוטת תיעוד</button></> : <>

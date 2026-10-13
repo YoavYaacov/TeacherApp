@@ -9,7 +9,7 @@ export function AiSettings() {
   const [st, setSt] = useState<AiStatus | { error: string; message: string } | null>(null);
   useEffect(() => { if (store.kind !== 'supabase') return; void aiStatus().then((s) => setSt(isFail(s) ? { error: s.error, message: s.message } : s)); }, [store.kind]);
   const set = (patch: Partial<AiPrefs>) => { const cur = store.db.user_settings[0]; store.saveFast('user_settings', [{ id: true, theme: cur?.theme ?? 'sky-blue', prefs: { ...(cur?.prefs ?? {}), ai: { ...((cur?.prefs?.ai as object) ?? {}), ...patch } } }]); };
-  const sel = <K extends keyof AiPrefs>(k: K, label: string, opts: [AiPrefs[K], string][]) => <label className="field">{label}<select className="input" value={String(prefs[k])} onChange={(e) => set({ [k]: e.target.value } as Partial<AiPrefs>)}>{opts.map(([v, l]) => <option key={String(v)} value={String(v)}>{l}</option>)}</select></label>;
+  const sel = <K extends keyof AiPrefs>(k: K, label: string, opts: [AiPrefs[K], string][]) => <label className="field fl"><span>{label}</span><select className="input" value={String(prefs[k])} onChange={(e) => set({ [k]: e.target.value } as Partial<AiPrefs>)}>{opts.map(([v, l]) => <option key={String(v)} value={String(v)}>{l}</option>)}</select></label>;
   return <>
     <h2>העוזר האישי</h2>
     <div className="bk-sec"><h3>מצב השירות</h3>

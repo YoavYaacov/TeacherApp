@@ -19,7 +19,7 @@ export function AddLessonModal({ groups, groupId, onClose }: { groups: StudyGrou
   return (
     <Modal title="הוספת שיעור" onClose={onClose}>
       <div className="form">
-        {!groupId && <label className="field">קבוצה<select className="input" value={gid} onChange={(e) => setGid(e.target.value)}>{groups.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>}
+        {!groupId && <label className="field fl"><span>קבוצה</span><select className="input" value={gid} onChange={(e) => setGid(e.target.value)}>{groups.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>}
         <label className="field">תאריך<input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
         <div className="row"><label className="field">התחלה<input className="input" type="time" value={start} onChange={(e) => setStart(e.target.value)} /></label>
           <label className="field">סיום<input className="input" type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></label></div>

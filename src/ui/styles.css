@@ -60,7 +60,14 @@ main { flex: 1; overflow: auto; }
 /* שדות */
 .input, .search { padding: 9px 16px; border: 1px solid var(--muted); border-radius: 999px; background: var(--surface); min-width: 0; }
 textarea.input { border-radius: 14px; width: 100%; resize: vertical; min-height: 64px; }
-select.input { padding-inline-end: 12px; cursor: pointer; }
+select.input { cursor: pointer; appearance: none; -webkit-appearance: none; border-radius: 16px; padding-inline-end: 38px; min-height: 42px;
+  border-color: color-mix(in srgb, var(--muted) 55%, var(--surface));
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M0 0h12L6 7z' fill='%238a8a99'/%3E%3C/svg%3E") no-repeat left 16px center; }
+select.input:focus-visible { outline-offset: 1px; border-color: var(--accent); }
+/* שדה בחירה עם תווית צפה על קו המסגרת (תחתית התווית בצבע הכרטיס יוצרת "חריץ" במסגרת) */
+.field.fl { position: relative; margin-top: 6px; }
+.field.fl > span { position: absolute; top: -9px; inset-inline-start: 16px; z-index: 1; padding: 0 6px; line-height: 1.2; font-size: 12px; background: var(--surface); color: var(--muted); pointer-events: none; }
+.field.fl:focus-within > span { color: var(--accent-text); }
 .search { display: inline-flex; align-items: center; gap: 8px; flex: none; width: 260px; }
 .search input { border: 0; outline: 0; background: transparent; width: 100%; padding: 0; }
 .search:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }

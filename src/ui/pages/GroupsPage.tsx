@@ -71,7 +71,7 @@ function GroupForm({ group, onClose, onSaved }: { group?: StudyGroup; onClose: (
       <div className="form">
         <label className="field">שם הקבוצה<input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="למשל: מתמטיקה ז׳ 1" /></label>
         <label className="field">שכבה<input className="input" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="ז׳" /></label>
-        {years.length > 1 && <label className="field">שנת לימודים<select className="input" value={yearId} onChange={(e) => setYearId(e.target.value)}>{years.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}</select></label>}
+        {years.length > 1 && <label className="field fl"><span>שנת לימודים</span><select className="input" value={yearId} onChange={(e) => setYearId(e.target.value)}>{years.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}</select></label>}
         {group && <div className="row"><label className="field">משקל מחצית א׳ בשנתי (%)<input className="input" inputMode="decimal" value={w1} onChange={(e) => setW1(e.target.value)} /></label>
           <label className="field">משקל מחצית ב׳ (%)<input className="input" inputMode="decimal" value={w2} onChange={(e) => setW2(e.target.value)} /></label></div>}
         {issues.map((i) => <p key={i.code} className="issue" role="alert">{i.message}</p>)}

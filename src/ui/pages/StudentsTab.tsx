@@ -171,7 +171,7 @@ function MoveStudent({ student, from, onClose }: { student: Student; from: Study
   };
   return <Modal title={`העברת ${label(student)}`} onClose={onClose}><div className="form">
     {targets.length === 0 ? <p>אין קבוצה אחרת להעברה אליה.</p> : <>
-      <label className="field">קבוצת יעד<select className="input" value={to} onChange={(e) => setTo(e.target.value)}>{targets.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
+      <label className="field fl"><span>קבוצת יעד</span><select className="input" value={to} onChange={(e) => setTo(e.target.value)}>{targets.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
       <p className="muted">הציונים בקבוצה הנוכחית נשמרים בהיסטוריה.</p>
       <button className="btn primary" onClick={go}>העבר</button></>}
   </div></Modal>;
@@ -195,7 +195,7 @@ export function StudentCard({ student, onClose }: { student: Student; onClose: (
       <div className="row"><label className="field">משפחה<input className="input" value={last} onChange={(e) => setLast(e.target.value)} /></label>
         <label className="field">פרטי<input className="input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
         <label className="field">כיתת אם<input className="input" value={cls} onChange={(e) => setCls(e.target.value)} /></label>
-        <label className="field">מגדר (לניסוח הערכות)<select className="input" value={gender} onChange={(e) => setGender(e.target.value as 'm' | 'f' | '')}><option value="">לא צוין</option><option value="m">זכר</option><option value="f">נקבה</option></select></label></div>
+        <label className="field fl"><span>מגדר (לניסוח הערכות)</span><select className="input" value={gender} onChange={(e) => setGender(e.target.value as 'm' | 'f' | '')}><option value="">לא צוין</option><option value="m">זכר</option><option value="f">נקבה</option></select></label></div>
       <button className="btn primary" style={{ width: 'fit-content' }} onClick={async () => { await store.patch('students', student.id, { last_name: last.trim(), first_name: first.trim(), home_class: normalizeClass(cls), gender: gender || null }); onClose(); }}>שמור פרטים</button>
       <h2>ציונים</h2>
       {groupIds.length === 0 ? <p className="muted">אין שיוך לקבוצות</p> :

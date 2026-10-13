@@ -28,7 +28,7 @@ function AssignModal({ ev, groups, onClose }: { ev: CalendarEvent; groups: Study
     <p><strong>{ev.title}</strong><br /><span className="muted">{new Date(ev.start_at).toLocaleDateString('he-IL')} {ev.all_day ? '' : fmtTime(ev.start_at)}</span></p>
     <p className="muted">אירוע שלא משויך לקבוצה אינו מופיע בתיעוד שיעורים. אם זה לא שיעור (למשל ישיבה), אפשר להשאיר אותו כך.</p>
     <div className="form">
-      <label className="field">קבוצה<select className="input" value={gid} onChange={(e) => setGid(e.target.value)}><option value="">בחר קבוצה…</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
+      <label className="field fl"><span>קבוצה</span><select className="input" value={gid} onChange={(e) => setGid(e.target.value)}><option value="">בחר קבוצה…</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
       <label className="row"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> החל על כל האירועים בשם הזה (כולל ייבואים עתידיים)</label>
       <button className="btn primary" disabled={!gid} onClick={save}>שייך</button>
     </div>
