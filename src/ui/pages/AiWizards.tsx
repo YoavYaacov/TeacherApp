@@ -107,9 +107,9 @@ function PlanForm({ ctx, run, blocked }: FP) {
   const [cl, setCl] = useState<'weak' | 'regular' | 'strong' | 'mixed'>('mixed'); const [hw, setHw] = useState(true);
   const recent = g ? [...new Set(db.calendar_events.filter((e) => e.group_id === g.id).sort((a, b) => b.start_at.localeCompare(a.start_at)).map((e) => db.lesson_logs.find((l) => l.calendar_event_id === e.id)?.topic?.trim()).filter((t): t is string => !!t))].slice(0, 5) : [];
   return <div className="form"><Blocked show={blocked} /><GroupSelect value={gid} onChange={(v) => { setGid(v); setLevel(db.study_groups.find((x) => x.id === v)?.grade_level ?? ''); }} optional />
-    <label className="field">שכבה / רמה<input className="input" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="למשל: י׳ 5 יח״ל" /></label>
-    <label className="field">נושא<input className="input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="למשל: משוואות ריבועיות" />{recent.length > 0 && <small className="muted">נושאים שתועדו לאחרונה: {recent.map((t) => <button key={t} className="chip" onClick={() => setTopic(t)}>{t}</button>)}</small>}</label>
-    <div className="row"><label className="field">משך (דקות)<input className="input" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} /></label>
+    <label className="field fl"><span>שכבה / רמה</span><input className="input" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="למשל: י׳ 5 יח״ל" /></label>
+    <label className="field fl"><span>נושא</span><input className="input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="למשל: משוואות ריבועיות" />{recent.length > 0 && <small className="muted">נושאים שתועדו לאחרונה: {recent.map((t) => <button key={t} className="chip" onClick={() => setTopic(t)}>{t}</button>)}</small>}</label>
+    <div className="row"><label className="field fl"><span>משך (דקות)</span><input className="input" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} /></label>
       <label className="field fl"><span>רמת הכיתה</span><select className="input" value={cl} onChange={(e) => setCl(e.target.value as typeof cl)}><option value="weak">חלשה</option><option value="regular">רגילה</option><option value="strong">חזקה</option><option value="mixed">מעורבת</option></select></label></div>
     <label className="field">מטרות (אופציונלי)<textarea className="input" rows={2} value={goals} onChange={(e) => setGoals(e.target.value)} /></label>
     <label className="field">הערות מיוחדות (אופציונלי)<textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
@@ -124,8 +124,8 @@ function PracticeForm({ ctx, run, blocked }: FP) {
   const [c, setC] = useState({ basic: 3, medium: 3, challenging: 2 });
   const num = (k: keyof typeof c) => <label className="field">{k === 'basic' ? 'בסיסיים' : k === 'medium' ? 'בינוניים' : 'אתגר'}<input className="input" inputMode="numeric" value={c[k]} onChange={(e) => setC({ ...c, [k]: Math.max(0, Math.min(8, Number(e.target.value) || 0)) })} /></label>;
   return <div className="form"><Blocked show={blocked} /><GroupSelect value={gid} onChange={(v) => { setGid(v); setLevel(db.study_groups.find((x) => x.id === v)?.grade_level ?? ''); }} optional />
-    <label className="field">שכבה / רמה<input className="input" value={level} onChange={(e) => setLevel(e.target.value)} /></label>
-    <label className="field">נושא<input className="input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="למשל: משוואות עם שברים" /></label>
+    <label className="field fl"><span>שכבה / רמה</span><input className="input" value={level} onChange={(e) => setLevel(e.target.value)} /></label>
+    <label className="field fl"><span>נושא</span><input className="input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="למשל: משוואות עם שברים" /></label>
     <div className="row">{num('basic')}{num('medium')}{num('challenging')}</div>
     <label className="field">הערות (אופציונלי)<textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
     <p className="muted small">הפתרונות נבדקים חישובית כשאפשר (משוואות בנעלם אחד וערכים מספריים). מה שלא נבדק יסומן ככזה.</p>
@@ -146,7 +146,7 @@ function SummaryForm({ ctx, run, blocked }: FP) {
       <label className="field">הערות חופשיות על השיעור<textarea className="input" rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="מה למדנו, מה היה קשה, מה מתוכנן להמשך…" /></label>
       <p className="muted small">אארגן רק את מה שכתבת, בלי להוסיף. תקבל טיוטה לעריכה, ותיעוד קיים לא יידרס בלי אישורך.</p><Note />
       <button className="btn primary" disabled={!ev || !notes.trim()} onClick={() => run(`ארגן לי תיעוד לשיעור ${fmtDay(ev!.start_at)} של ${g?.name}`, (e) => lessonSummaryDraft(e, { eventId: ev!.id, notes }))}>הכן טיוטת תיעוד</button></> : <>
-      <div className="row"><label className="field">מתאריך<input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label><label className="field">עד תאריך<input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label></div>
+      <div className="row"><label className="field fl"><span>מתאריך</span><input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label><label className="field fl"><span>עד תאריך</span><input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label></div>
       <p className="muted small">הסיכום מבוסס על תיעוד השיעורים שכבר קיים (בלי הערות פרטיות).</p>
       <button className="btn primary" disabled={!g || from > to} onClick={() => run(`סכם את ההתקדמות של ${g!.name} בין ${from.split('-').reverse().join('.')} ל-${to.split('-').reverse().join('.')}`, (e) => periodSummary(e, { groupId: g!.id, from, to }))}>סכם</button></>}
   </div>;

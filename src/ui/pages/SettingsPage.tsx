@@ -68,8 +68,8 @@ function General() {
     {years.length === 0 && <p>שנת לימודים תיווצר אוטומטית עם יצירת הקבוצה הראשונה, או:</p>}
     {years.map((y) => (
       <div key={y.id} className="card" style={{ marginBottom: 12 }}>
-        <label className="field">שם<input key={y.name} className="input" defaultValue={y.name} onBlur={(e) => e.target.value !== y.name && store.patchFast('academic_years', y.id, { name: e.target.value })} /></label>
-        <div className="form two">{fields.map(([k, l]) => <label key={k} className="field">{l}<input key={String(y[k])} className="input" type="date" defaultValue={String(y[k])} onBlur={(e) => e.target.value && e.target.value !== y[k] && store.patchFast('academic_years', y.id, { [k]: e.target.value })} /></label>)}</div>
+        <label className="field fl"><span>שם</span><input key={y.name} className="input" defaultValue={y.name} onBlur={(e) => e.target.value !== y.name && store.patchFast('academic_years', y.id, { name: e.target.value })} /></label>
+        <div className="form two">{fields.map(([k, l]) => <label key={k} className="field fl"><span>{l}</span><input key={String(y[k])} className="input" type="date" defaultValue={String(y[k])} onBlur={(e) => e.target.value && e.target.value !== y[k] && store.patchFast('academic_years', y.id, { [k]: e.target.value })} /></label>)}</div>
         <p className="muted">מחצית א׳: {fmtDate(y.term1_start)}–{fmtDate(y.term1_end)} · מחצית ב׳: {fmtDate(y.term2_start)}–{fmtDate(y.term2_end)}</p>
         {(() => {
           const used = store.db.study_groups.filter((g) => g.academic_year_id === y.id).length;

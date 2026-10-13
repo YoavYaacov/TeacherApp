@@ -68,6 +68,9 @@ select.input:focus-visible { outline-offset: 1px; border-color: var(--accent); }
 .field.fl { position: relative; margin-top: 6px; }
 .field.fl > span { position: absolute; top: -9px; inset-inline-start: 16px; z-index: 1; padding: 0 6px; line-height: 1.2; font-size: 12px; background: var(--surface); color: var(--muted); pointer-events: none; }
 .field.fl:focus-within > span { color: var(--accent-text); }
+.field.fl > span { max-width: calc(100% - 32px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.field.fl > input.input { border-radius: 16px; min-height: 42px; border-color: color-mix(in srgb, var(--muted) 55%, var(--surface)); }
+.field.fl > input.input:focus-visible { outline-offset: 1px; border-color: var(--accent); }
 .search { display: inline-flex; align-items: center; gap: 8px; flex: none; width: 260px; }
 .search input { border: 0; outline: 0; background: transparent; width: 100%; padding: 0; }
 .search:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }

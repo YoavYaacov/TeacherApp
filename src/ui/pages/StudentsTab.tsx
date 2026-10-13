@@ -107,9 +107,9 @@ function AddStudent({ group, onClose }: { group: StudyGroup; onClose: () => void
   };
   return (
     <Modal title="הוספת תלמיד" onClose={onClose}><div className="form">
-      <label className="field">שם משפחה<input className="input" autoFocus value={last} onChange={(e) => setLast(e.target.value)} /></label>
-      <label className="field">שם פרטי<input className="input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
-      <label className="field">כיתת אם<input className="input" value={cls} onChange={(e) => setCls(e.target.value)} placeholder="ז׳1" /></label>
+      <label className="field fl"><span>שם משפחה</span><input className="input" autoFocus value={last} onChange={(e) => setLast(e.target.value)} /></label>
+      <label className="field fl"><span>שם פרטי</span><input className="input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
+      <label className="field fl"><span>כיתת אם</span><input className="input" value={cls} onChange={(e) => setCls(e.target.value)} placeholder="ז׳1" /></label>
       <p className="muted">תלמיד בעל אותו שם וכיתה שכבר קיים במערכת (בקבוצה אחרת) יצורף ולא ייווצר שוב.</p>
       {msg && <p role="status">{msg}</p>}
       <div className="row"><button className="btn primary" disabled={!last.trim() || !first.trim()} onClick={() => go(false)}>הוסף</button>
@@ -192,9 +192,9 @@ export function StudentCard({ student, onClose }: { student: Student; onClose: (
   };
   return (
     <Modal title="כרטיס תלמיד" onClose={onClose}><div className="form">
-      <div className="row"><label className="field">משפחה<input className="input" value={last} onChange={(e) => setLast(e.target.value)} /></label>
-        <label className="field">פרטי<input className="input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
-        <label className="field">כיתת אם<input className="input" value={cls} onChange={(e) => setCls(e.target.value)} /></label>
+      <div className="row"><label className="field fl"><span>משפחה</span><input className="input" value={last} onChange={(e) => setLast(e.target.value)} /></label>
+        <label className="field fl"><span>פרטי</span><input className="input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
+        <label className="field fl"><span>כיתת אם</span><input className="input" value={cls} onChange={(e) => setCls(e.target.value)} /></label>
         <label className="field fl"><span>מגדר (לניסוח הערכות)</span><select className="input" value={gender} onChange={(e) => setGender(e.target.value as 'm' | 'f' | '')}><option value="">לא צוין</option><option value="m">זכר</option><option value="f">נקבה</option></select></label></div>
       <button className="btn primary" style={{ width: 'fit-content' }} onClick={async () => { await store.patch('students', student.id, { last_name: last.trim(), first_name: first.trim(), home_class: normalizeClass(cls), gender: gender || null }); onClose(); }}>שמור פרטים</button>
       <h2>ציונים</h2>
