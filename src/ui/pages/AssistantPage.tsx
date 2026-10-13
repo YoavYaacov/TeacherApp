@@ -169,10 +169,8 @@ export function AssistantPage() {
           <button className="btn sm" onClick={newChat}><MessageSquarePlus size={15} aria-hidden />חדשה</button>
         </div>
       </header>
-      <div className="chat-ctx"><button className="chip" onClick={() => setPickCtx(true)} title="שינוי הקשר"><Settings2 size={14} aria-hidden /> {ctxTitle(db, ctx)}</button>
-        {usage && <span className="muted small usage" title={LIMIT_NOTE(usage.limit)}>בקשות AI היום: {usage.used} מתוך {usage.limit} (מגבלה פנימית של TeacherApp) · מתאפס {resetLabel()} (שעון ישראל) <button className="linklike" aria-expanded={usageInfo} onClick={() => setUsageInfo((v) => !v)}>למה?</button></span>}
+      <div className="chat-ctx"><div className="field fl ctx"><span>הקשר</span><button className="chip" onClick={() => setPickCtx(true)} title="שינוי הקשר"><Settings2 size={14} aria-hidden /> {ctxTitle(db, ctx)}</button></div>
         {prefs.level === 'B' ? <span className="muted small" title="נתוני תלמידים נשלחים בכינויים בלבד, בלי שמות ובלי הערות פרטיות">פרטיות: כינויים</span> : <span className="muted small">פרטיות: נתונים מצטברים בלבד</span>}</div>
-      {usageInfo && usage && <p className="note-banner" role="note">{LIMIT_NOTE(usage.limit)} הספירה מתחילה מחדש בכל חצות לפי שעון ארה״ב המערבית (אותו יום מכסה של Google), כלומר {resetLabel()} לפי שעון ישראל. שאלות עובדתיות על המערכת לא נספרות, כי הן לא משתמשות ב-AI.</p>}
       {showHist && <div className="hist card">
         {convs.length === 0 ? <p className="muted">אין שיחות שמורות</p> : <ul className="list">{convs.map((c) => (
           <li key={c.id}><button className="rowbtn" onClick={() => { setActiveId(c.id); setShowHist(false); setErr(null); }}><span><strong>{c.title}</strong><br /><small className="muted">{ctxTitle(db, c.context)}</small></span><span className="muted">{when(c.updated_at)}</span></button>
@@ -198,6 +196,12 @@ export function AssistantPage() {
         <button className="btn primary" type="submit" disabled={busy || !text.trim()} aria-label="שלח"><Send size={18} aria-hidden /></button>
         {messages.length > 0 && <button type="button" className="btn" aria-label="פעולות מהירות" onClick={() => setWizard('menu')}><Plus size={18} aria-hidden /></button>}
       </form>
+      {usage && <div className="usage-foot"><span className="muted small" title="בקשות AI שנוצלו היום">{usage.used}/{usage.limit}</span><button className="linklike small" onClick={() => setUsageInfo(true)}>מה זה?</button></div>}
+      {usageInfo && usage && <Modal title="מונה בקשות AI" onClose={() => setUsageInfo(false)}>
+        <p>היום נוצלו {usage.used} בקשות מתוך {usage.limit}. המונה מתאפס {resetLabel()} (שעון ישראל).</p>
+        <p className="muted">{LIMIT_NOTE(usage.limit)} הספירה מתחילה מחדש בכל חצות לפי שעון ארה״ב המערבית (אותו יום מכסה של Google). שאלות עובדתיות על המערכת לא נספרות, כי הן לא משתמשות ב-AI.</p>
+        <button className="btn primary" onClick={() => setUsageInfo(false)}>הבנתי</button>
+      </Modal>}
       {pickCtx && <ContextPicker ctx={ctx} onPick={(c) => void setCtx(c)} onClose={() => setPickCtx(false)} />}
       {wizard && <Wizard kind={wizard} ctx={ctx} blocked={blocked} onClose={() => setWizard(null)} onProgress={setProgress} post={post} />}
     </div>
