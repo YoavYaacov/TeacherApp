@@ -356,3 +356,6 @@ html:not([data-anim='off']) .seg > button, html:not([data-anim='off']) .mini-seg
 .field.fl.ctx > .chip { min-height: 42px; border-radius: 16px; padding-inline: 16px; border-color: color-mix(in srgb, var(--muted) 55%, var(--surface)); }
 .chat-ctx { margin: 14px 0 8px; }
 .usage-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 4px 4px 0; line-height: 1.4; }
+/* הקשר השיחה יושב ישירות על רקע הדף: שדה שקוף וחריץ בצבע הרקע, כדי שהחיתוך יהיה נקי */
+.field.fl.ctx > span { background: var(--bg); }
+.field.fl.ctx > .chip { background: transparent; }
