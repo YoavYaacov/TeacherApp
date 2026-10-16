@@ -15,10 +15,26 @@ export function normalizeClass(raw: string | null | undefined): string | null {
   return s;
 }
 
-/** פיצול שורת שם: "כהן דני" / "כהן, דני" / "כהן<TAB>דני<TAB>ז1" */
-export function parseStudentLine(line: string): { last: string; first: string; cls: string | null } | null {
+export interface ParsedStudent { last: string; first: string; cls: string | null; gender?: 'm' | 'f'; mashov?: boolean }
+
+/** שורה מייצוא משו"ב: מס' | ת.ז | שם התלמיד (משפחה, פרטי, שם נוסף) | מין | שכבה | מקבילה | ...
+ *  ת.ז, תאריך לידה וכתובת מתעלמים בכוונה ואינם נשמרים. */
+export function parseMashovLine(line: string): ParsedStudent | null {
+  const t = line.trim();
+  const parts = (t.includes('\t') ? t.split('\t') : t.split(',')).map((x) => x.trim().replace(/^"|"$/g, ''));
+  if (parts.length < 6 || !/^\d{1,3}$/.test(parts[0]) || !/^\d{5,9}$/.test(parts[1])) return null;
+  const words = parts[2].split(/\s+/).filter(Boolean);
+  if (words.length < 2) return null;
+  const g = parts[3];
+  return { last: words[0], first: words.slice(1).join(' '), cls: normalizeClass(`${parts[4]}${parts[5]}`), gender: g === 'ז' ? 'm' : g === 'נ' ? 'f' : undefined, mashov: true };
+}
+
+/** פיצול שורת שם: "כהן דני" / "כהן, דני" / "כהן<TAB>דני<TAB>ז1", או שורת משו"ב מלאה */
+export function parseStudentLine(line: string): ParsedStudent | null {
   const t = line.trim();
   if (!t) return null;
+  const m = parseMashovLine(t);
+  if (m) return m;
   const parts = (t.includes('\t') ? t.split('\t') : t.includes(',') || t.includes(';') ? t.split(/[,;]/) : t.split(/\s+/)).map((x) => x.trim()).filter(Boolean);
   if (parts.length < 2) return null;
   return { last: parts[0], first: parts[1], cls: normalizeClass(parts[2] ?? null) };

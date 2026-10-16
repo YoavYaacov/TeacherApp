@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Download, FileUp, Plus, Search, UserMinus, UserPlus, ClipboardPaste, Undo2, ArrowLeftRight } from 'lucide-react';
 import { useStore, type Store } from '../../data/store';
 import { Modal } from '../Modal';
-import { download, hebSort, normalizeClass, parseStudentLine, toCSV, today } from '../../lib/util';
+import { download, hebSort, normalizeClass, parseMashovLine, parseStudentLine, toCSV, today } from '../../lib/util';
 import { activeStudents, label } from '../../lib/domain';
 import { studentGrades, termConfig, storedFinal } from '../../lib/gradebook';
 import { computeAnnual, computeTerm } from '../../engine/grades';
@@ -123,7 +123,8 @@ function PasteImport({ group, onClose }: { group: StudyGroup; onClose: () => voi
   const [text, setText] = useState('');
   const parsed = useMemo(() => {
     const lines = text.split(/\r?\n/);
-    const body = lines.length && /משפחה|שם|כיתה/.test(lines[0]) && !/\d/.test(lines[0]) ? lines.slice(1) : lines;
+    const mashov = lines.some((l) => parseMashovLine(l)); // ייצוא ממשו"ב: שורות כותרת ושורות שאינן תלמידים מדולגות בשקט
+    const body = mashov ? lines.filter((l) => parseMashovLine(l)) : lines.length && /משפחה|שם|כיתה/.test(lines[0]) && !/\d/.test(lines[0]) ? lines.slice(1) : lines;
     return body.map((l) => ({ l, p: parseStudentLine(l) })).filter((x) => x.l.trim()).map(({ l, p }) => {
       if (!p) return { l, p, status: 'invalid' as const };
       const st = store.db.students.find((s) => same(s, p.last, p.first, p.cls));
@@ -139,7 +140,7 @@ function PasteImport({ group, onClose }: { group: StudyGroup; onClose: () => voi
   const doImport = async () => {
     setBusy(true);
     const newOnes = ok.filter((r) => r.status === 'new');
-    const saved = newOnes.length ? await store.save('students', newOnes.map((r) => ({ last_name: r.p!.last, first_name: r.p!.first, home_class: r.p!.cls, archived_at: null }))) : [];
+    const saved = newOnes.length ? await store.save('students', newOnes.map((r) => ({ last_name: r.p!.last, first_name: r.p!.first, home_class: r.p!.cls, archived_at: null, ...(r.p!.gender ? { gender: r.p!.gender } : {}) }))) : [];
     const ids = [...saved.map((s) => s.id), ...ok.filter((r) => r.status === 'existing').map((r) => store.db.students.find((s) => same(s, r.p!.last, r.p!.first, r.p!.cls))!.id)];
     await store.save('enrollments', ids.map((sid) => ({ student_id: sid, group_id: group.id, joined_at: today(), left_at: null })));
     onClose();
@@ -148,11 +149,11 @@ function PasteImport({ group, onClose }: { group: StudyGroup; onClose: () => voi
   const statusTxt = { new: 'חדש', existing: 'קיים במערכת, יצורף', dup: 'כפילות, ידולג', invalid: 'שורה לא תקינה' } as const;
   return (
     <Modal title="הדבקת רשימה / ייבוא" onClose={onClose} wide><div className="form">
-      <p className="muted">הדבק שמות (גם מ-Excel): בכל שורה שם משפחה, שם פרטי ואופציונלית כיתת אם. אפשר גם לטעון קובץ CSV.</p>
+      <p className="muted">הדבק שמות מ-Excel. פורמט פשוט: בכל שורה שם משפחה, שם פרטי ואופציונלית כיתת אם. אפשר גם להדביק ישירות את הרשימה מייצוא משו״ב (מס׳, ת.ז, שם התלמיד, מין, שכבה, מקבילה): המערכת תזהה לבד שם משפחה, שם פרטי (כולל שם נוסף), מין וכיתה, ולא תשמור ת.ז, תאריך לידה או כתובת.</p>
       <textarea className="input" rows={6} autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={'כהן\tדני\tז׳1\nלוי\tמיכל\tז׳2'} dir="rtl" />
       <label className="btn" style={{ width: 'fit-content' }}><FileUp size={16} aria-hidden />טען קובץ CSV<input type="file" accept=".csv,.txt,.tsv" hidden onChange={(e) => void onFile(e.target.files?.[0])} /></label>
-      {rows.length > 0 && <div className="gridwrap" style={{ maxHeight: 240 }}><table className="gb"><thead><tr><th>משפחה</th><th>פרטי</th><th>כיתה</th><th>מצב</th></tr></thead>
-        <tbody>{rows.map((r, i) => <tr key={i}><td>{r.p?.last ?? r.l}</td><td>{r.p?.first}</td><td>{r.p?.cls}</td><td className={r.status === 'invalid' ? 'bad' : ''}>{statusTxt[r.status]}</td></tr>)}</tbody></table></div>}
+      {rows.length > 0 && <div className="gridwrap" style={{ maxHeight: 240 }}><table className="gb"><thead><tr><th>משפחה</th><th>פרטי</th><th>כיתה</th><th>מין</th><th>מצב</th></tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={i}><td>{r.p?.last ?? r.l}</td><td>{r.p?.first}</td><td>{r.p?.cls}</td><td>{r.p?.gender === 'm' ? 'ז' : r.p?.gender === 'f' ? 'נ' : ''}</td><td className={r.status === 'invalid' ? 'bad' : ''}>{statusTxt[r.status]}</td></tr>)}</tbody></table></div>}
       <button className="btn primary" disabled={ok.length === 0 || busy} onClick={doImport}>ייבא {ok.length} תלמידים</button>
     </div></Modal>
   );
