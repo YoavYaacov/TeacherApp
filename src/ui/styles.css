@@ -382,8 +382,10 @@ html[data-theme='espresso'] { --doc-ok-bg:#24432E; --doc-ok-ink:#BDEBCB; --doc-b
 @media (max-width: 560px) { .acc-head { flex-wrap: wrap; row-gap: 6px; } .acc-title { flex-basis: 100%; order: -1; } .acc-head .doc-badge { order: 0; } .acc-caret { margin-inline-start: auto; } }
 
 /* ───── מסך הבית: תיעודים ממתינים + שעות נוספות ───── */
-.home-top { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); margin-bottom: 20px; align-items: start; }
+.home-top { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); margin-bottom: 20px; align-items: stretch; }
 @media (max-width: 860px) { .home-top { grid-template-columns: 1fr; } }
+/* מחשב: שני הכרטיסים באותו גובה; תוכן כרטיס השעות מתפרס ומצמיד את הסיכום והכפתורים לתחתית */
+@media (min-width: 861px) { .home-top > .card { display: flex; flex-direction: column; } .home-top .ot-rows { flex: 1; justify-content: center; } .home-top .pending-list { flex: 1; } }
 .pending-card { border: 2px solid var(--accent); }
 .pending-card h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pending-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
