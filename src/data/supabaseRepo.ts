@@ -13,8 +13,8 @@ export class SupabaseRepo implements Repo {
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await this.sb.from(t).select('*').range(from, from + PAGE - 1);
         if (error) {
-          // טבלאות העוזר (0005) אופציונליות עד שהמיגרציה הורצה: האפליקציה ממשיכה לעבוד בלעדיהן
-          if (t.startsWith('ai_') && /does not exist|schema cache|PGRST205|42P01/i.test(`${error.code ?? ''} ${error.message}`)) break;
+          // טבלאות העוזר (0005) ושעות נוספות (0006) אופציונליות עד שהמיגרציה הורצה: האפליקציה ממשיכה לעבוד בלעדיהן
+          if ((t.startsWith('ai_') || t === 'overtime_hours') && /does not exist|schema cache|PGRST205|42P01/i.test(`${error.code ?? ''} ${error.message}`)) break;
           throw new Error(`${t}: ${error.message}`);
         }
         all.push(...(data ?? []));

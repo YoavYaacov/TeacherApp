@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Plus, Trash2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Download, MinusCircle, Plus, Trash2, XCircle } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { Modal } from '../Modal';
-import { createLessons, googleLinked, logOf, needsDoc } from '../../lib/lessons';
+import { createLessons, googleLinked, logOf } from '../../lib/lessons';
 import { download, fmtDay, fmtDate, fmtTime, iso, toCSV } from '../../lib/util';
 import type { CalendarEvent, LessonLog, StudyGroup } from '../../data/types';
 
@@ -32,33 +32,56 @@ export function AddLessonModal({ groups, groupId, onClose }: { groups: StudyGrou
   );
 }
 
-function LessonCard({ lesson }: { lesson: CalendarEvent }) {
+const COMPLETION_LABEL = { pending: 'לא תועד', done: 'תועד', not_needed: 'אין צורך' } as const;
+/** תגית מצב תיעוד: צבע + אייקון + טקסט (המצב ברור גם בלי להסתמך על צבע) */
+export function DocStatusBadge({ status, cancelled }: { status: LessonLog['completion']; cancelled?: boolean }) {
+  if (cancelled) return <span className="doc-badge cancelled"><XCircle size={14} aria-hidden />בוטל</span>;
+  const Icon = status === 'done' ? CheckCircle2 : status === 'pending' ? AlertTriangle : MinusCircle;
+  return <span className={`doc-badge ${status}`}><Icon size={14} aria-hidden />{COMPLETION_LABEL[status]}</span>;
+}
+
+/** טופס תיעוד שיעור (משמש גם את הלשונית וגם את החלון ממסך הבית) */
+export function LessonCard({ lesson, bare }: { lesson: CalendarEvent; bare?: boolean }) {
   const store = useStore();
   const log = logOf(store, lesson.id);
   const [f, setF] = useState({ topic: log?.topic ?? '', learned: log?.learned ?? '', homework: log?.homework ?? '', private_note: log?.private_note ?? '' });
   const timer = useRef<number | undefined>(undefined);
   const latest = useRef(f); latest.current = f;
-  const completion = log?.completion ?? 'pending';
+  const stored = log?.completion ?? 'pending';
+  const [completion, setCompletion] = useState(stored); // מוצג מיד, גם לפני שהשמירה המושהית הסתיימה
+  const comp = useRef(stored);
+  useEffect(() => { comp.current = stored; setCompletion(stored); }, [stored]); // שינוי חיצוני (למשל אישור טיוטת AI)
+  // אם המשתמש נגע במתג ידנית, הסימון האוטומטי לא מתערב יותר בשיעור הזה
+  const manual = useRef(false);
   const hasContent = !!(log && (log.topic || log.learned || log.homework || log.private_note));
   const persist = (patch: Partial<LessonLog> = {}) => {
     window.clearTimeout(timer.current);
-    store.saveFast('lesson_logs', [{ calendar_event_id: lesson.id, ...latest.current, completion, ...patch }]);
+    store.saveFast('lesson_logs', [{ calendar_event_id: lesson.id, ...latest.current, completion: comp.current, ...patch }]);
   };
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-  const set = (k: keyof typeof f, v: string) => { setF({ ...f, [k]: v }); window.clearTimeout(timer.current); latest.current = { ...f, [k]: v }; timer.current = window.setTimeout(() => persist(), 700); };
+  // יציאה מהחלון/מהשורה באמצע הקלדה: שומרים מיד במקום לאבד את השינוי האחרון
+  const dirty = useRef(false);
+  useEffect(() => () => { window.clearTimeout(timer.current); if (dirty.current) { dirty.current = false; store.saveFast('lesson_logs', [{ calendar_event_id: lesson.id, ...latest.current, completion: comp.current }]); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const set = (k: keyof typeof f, v: string) => {
+    const next = { ...f, [k]: v };
+    setF(next); latest.current = next; dirty.current = true;
+    // תוכן משמעותי בשדה כלשהו מסמן "תועד" אוטומטית, רק משמצב "לא תועד" ורק אם לא נבחר מצב ידנית. מחיקת תוכן לא מחזירה.
+    if (lesson.status === 'confirmed' && comp.current === 'pending' && !manual.current && v.trim()) { comp.current = 'done'; setCompletion('done'); }
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => { dirty.current = false; persist(); }, 700);
+  };
   const field = (k: keyof typeof f, label: string) => (
     <label className="field">{label}
-      <textarea className="input" rows={2} value={f[k]} onChange={(e) => set(k, e.target.value)} onBlur={() => persist()} />
+      <textarea className="input" rows={2} value={f[k]} onChange={(e) => set(k, e.target.value)} onBlur={() => { dirty.current = false; persist(); }} />
     </label>);
   return (
-    <div className="lesson-card">
+    <div className={bare ? undefined : 'lesson-card'}>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <strong>{fmtDay(lesson.start_at)} · {fmtTime(lesson.start_at)}</strong>
         <span className="row">
           {lesson.status === 'cancelled' ? <span className="badge">{lesson.source === 'google' ? 'בוטל ב-Google' : 'בוטל'}</span>
             : <span className="mini-seg big" role="group" aria-label="סטטוס תיעוד">
-              {([['pending', 'ממתין'], ['done', 'מתועד'], ['not_needed', 'אין צורך']] as const).map(([id, l]) =>
-                <button key={id} aria-pressed={completion === id} onClick={() => persist({ completion: id })}>{l}</button>)}
+              {(['pending', 'done', 'not_needed'] as const).map((id) =>
+                <button key={id} aria-pressed={completion === id} onClick={() => { manual.current = true; comp.current = id; setCompletion(id); persist({ completion: id }); }}>{COMPLETION_LABEL[id]}</button>)}
             </span>}
         </span>
       </div>
@@ -69,18 +92,24 @@ function LessonCard({ lesson }: { lesson: CalendarEvent }) {
   );
 }
 
+/** חלון תיעוד שיעור בודד (מסך הבית) */
+export function LessonDocModal({ lesson, groupName, onClose }: { lesson: CalendarEvent; groupName: string; onClose: () => void }) {
+  return <Modal title={`תיעוד שיעור · ${groupName}`} onClose={onClose} wide><LessonCard lesson={lesson} bare /></Modal>;
+}
+
+const weekdayDate = (s: string) => `${new Date(s).toLocaleDateString('he-IL', { weekday: 'long' })} · ${fmtDate(s)} · ${fmtTime(s)}`;
+
 export function LessonsTab({ group }: { group: StudyGroup }) {
   const store = useStore();
   const [adding, setAdding] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+  const [openId, setOpenId] = useState<string | null | undefined>(undefined); // undefined = ברירת מחדל (האחרון פתוח); null = הכול סגור
   const [manage, setManage] = useState<CalendarEvent | null>(null);
   const now = new Date();
   const mine = store.db.calendar_events.filter((l) => l.group_id === group.id).sort((a, b) => a.start_at.localeCompare(b.start_at));
   // שיעור שהתחיל כבר ניתן לתיעוד; שיעורים שממתינים לתיעוד תמיד מוצגים, גם אם הם ישנים
   const future = mine.filter((l) => new Date(l.start_at) > now && l.status === 'confirmed');
   const past = mine.filter((l) => new Date(l.start_at) <= now && (!l.all_day || l.status === 'confirmed')).reverse();
-  const pendingIds = new Set(past.filter((l) => needsDoc(store, l.id, l.end_at, l.status, now, l.group_id)).map((l) => l.id));
-  const shown = showAll ? past : past.filter((l, i) => i < 3 || pendingIds.has(l.id));
+  const open = openId === undefined ? past[0]?.id ?? null : openId; // past ממוין מהחדש לישן
   const exportCsv = () => download(`שיעורים-${group.name}.csv`, toCSV([
     ['תאריך', 'שעה', 'נושא', 'מה נלמד', 'שיעורי בית', 'סטטוס'],
     ...mine.filter((l) => l.status === 'confirmed').map((l) => { const g = logOf(store, l.id); return [fmtDate(l.start_at), fmtTime(l.start_at), g?.topic, g?.learned, g?.homework, g?.completion ?? 'pending']; }),
@@ -94,9 +123,21 @@ export function LessonsTab({ group }: { group: StudyGroup }) {
       <div className="grid">
         <section className="card full"><h2>שיעורים קודמים ותיעוד</h2>
           {past.length === 0 && <p className="muted">עדיין אין שיעורים קודמים</p>}
-          {shown.map((l) => <LessonCard key={l.id} lesson={l} />)}
-          {past.length > shown.length && !showAll && <button className="btn sm" onClick={() => setShowAll(true)}>הצג את כל {past.length} השיעורים</button>}
-          {showAll && past.length > 3 && <button className="btn sm" onClick={() => setShowAll(false)}>הצג פחות</button>}
+          <div className="acc">
+            {past.map((l) => {
+              const isOpen = open === l.id;
+              const st = logOf(store, l.id)?.completion ?? 'pending';
+              return (
+                <div key={l.id} className={`acc-item${isOpen ? ' open' : ''}`}>
+                  <button className="acc-head" aria-expanded={isOpen} aria-controls={`acc-${l.id}`} onClick={() => setOpenId(isOpen ? null : l.id)}>
+                    <span className="acc-title">{weekdayDate(l.start_at)}</span>
+                    <DocStatusBadge status={st} cancelled={l.status === 'cancelled'} />
+                    <ChevronDown size={18} className="acc-caret" aria-hidden />
+                  </button>
+                  {isOpen && <div className="acc-body" id={`acc-${l.id}`}><LessonCard lesson={l} bare /></div>}
+                </div>);
+            })}
+          </div>
         </section>
         <section className="card"><h2>שיעורים עתידיים</h2>
           {future.length === 0 ? <p className="muted">אין שיעורים עתידיים</p> :

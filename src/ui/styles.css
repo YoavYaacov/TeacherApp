@@ -359,3 +359,51 @@ html:not([data-anim='off']) .seg > button, html:not([data-anim='off']) .mini-seg
 /* הקשר השיחה יושב ישירות על רקע הדף: שדה שקוף וחריץ בצבע הרקע, כדי שהחיתוך יהיה נקי */
 .field.fl.ctx > span { background: var(--bg); }
 .field.fl.ctx > .chip { background: transparent; }
+
+/* ───── תגיות מצב תיעוד (צבע + אייקון + טקסט) ───── */
+:root { --doc-ok-bg:#D3EFDB; --doc-ok-ink:#176638; --doc-bad-bg:#F8D5D2; --doc-bad-ink:#9C3028; --doc-na-bg:#FFF0BF; --doc-na-ink:#806019; }
+html[data-theme='espresso'] { --doc-ok-bg:#24432E; --doc-ok-ink:#BDEBCB; --doc-bad-bg:#5A2B27; --doc-bad-ink:#FFD3CE; --doc-na-bg:#524218; --doc-na-ink:#FFE9A8; }
+.doc-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; padding: 3px 12px 3px 10px; border-radius: 999px; white-space: nowrap; background: var(--tint); color: var(--ink); }
+.doc-badge.done { background: var(--doc-ok-bg); color: var(--doc-ok-ink); }
+.doc-badge.pending { background: var(--doc-bad-bg); color: var(--doc-bad-ink); }
+.doc-badge.not_needed { background: var(--doc-na-bg); color: var(--doc-na-ink); }
+
+/* ───── Accordion שיעורים ───── */
+.acc { display: flex; flex-direction: column; gap: 8px; }
+.acc-item { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.acc-item.open { border-color: var(--accent); }
+.acc-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; min-height: 48px; background: transparent; border: 0; cursor: pointer; color: var(--ink); text-align: start; font: inherit; }
+.acc-title { flex: 1; font-weight: 600; min-width: 0; }
+.acc-caret { flex: none; color: var(--muted); transition: transform .15s; }
+.acc-item.open .acc-caret { transform: rotate(180deg); }
+@media (hover: hover) { .acc-head:hover { background: var(--tint); } }
+.acc-body { padding: 4px 16px 16px; border-top: 1px solid var(--border); }
+.acc-body .row:first-child { padding-top: 12px; }
+@media (max-width: 560px) { .acc-head { flex-wrap: wrap; row-gap: 6px; } .acc-title { flex-basis: 100%; order: -1; } .acc-head .doc-badge { order: 0; } .acc-caret { margin-inline-start: auto; } }
+
+/* ───── מסך הבית: תיעודים ממתינים + שעות נוספות ───── */
+.home-top { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); margin-bottom: 20px; align-items: start; }
+@media (max-width: 860px) { .home-top { grid-template-columns: 1fr; } }
+.pending-card { border: 2px solid var(--accent); }
+.pending-card h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pending-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pending-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; }
+.pending-item .meta { display: flex; flex-direction: column; min-width: 0; }
+.pending-item .meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pending-item .btn { flex: none; }
+.pending-ok { display: flex; align-items: center; gap: 8px; color: var(--doc-ok-ink); background: var(--doc-ok-bg); padding: 10px 14px; border-radius: 14px; font-weight: 600; }
+.stat small { color: var(--muted); font-size: 12px; }
+.ot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ot-head h2 { margin: 0; }
+.ot-month { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 14px; font-weight: 600; }
+.ot-month span { min-width: 130px; text-align: center; }
+.ot-rows { display: flex; flex-direction: column; gap: 10px; }
+.ot-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 14px; }
+.ot-row .val { font-size: 26px; font-weight: 700; line-height: 1; min-width: 2ch; text-align: center; }
+.ot-ctl { display: flex; align-items: center; gap: 10px; }
+.ot-step { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; display: grid; place-items: center; }
+.ot-step:disabled { opacity: .4; cursor: default; }
+@media (hover: hover) { .ot-step:not(:disabled):hover { background: var(--tint); } }
+.ot-total { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-weight: 700; }
+.ot-actions { display: flex; gap: 8px; margin-top: 14px; }
+.ot-actions .btn { flex: 1; justify-content: center; min-height: 44px; }

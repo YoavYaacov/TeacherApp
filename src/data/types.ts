@@ -15,6 +15,8 @@ export interface AiConversation { id: string; title: string; context: AiContext;
 export interface AiMessage { id: string; conversation_id: string; role: 'user' | 'assistant'; content: string; blocks: unknown[]; sources: unknown[]; created_at: string }
 export interface AiDraft { id: string; conversation_id: string | null; kind: 'lesson_log' | 'evaluation'; target: Record<string, string>; payload: Record<string, unknown>; status: 'pending' | 'applied' | 'cancelled'; created_at: string; applied_at: string | null }
 export interface AiEvaluation { id: string; group_id: string; student_id: string; period: 'h1' | 'h2' | 'annual'; text: string; params: Record<string, unknown>; created_at: string; updated_at: string }
+/** שעות נוספות: רשומה אחת לכל חודש לועזי (שנה+חודש 1–12) */
+export interface OvertimeHours { year: number; month: number; frontal_hours: number; pedagogical_hours: number }
 export interface UserSettings { id: true; theme: string; prefs: Record<string, unknown> }
 
 export interface DB {
@@ -23,12 +25,13 @@ export interface DB {
   grade_policy_overrides: PolicyOverride[]; final_grades: FinalGradeRow[];
   calendar_events: CalendarEvent[]; lesson_logs: LessonLog[]; user_settings: UserSettings[];
   ai_conversations: AiConversation[]; ai_messages: AiMessage[]; ai_drafts: AiDraft[]; ai_evaluations: AiEvaluation[];
+  overtime_hours: OvertimeHours[];
 }
 export type TableName = keyof DB;
-export const TABLES: TableName[] = ['academic_years','study_groups','students','enrollments','grade_categories','assessment_events','grades','grade_policy_overrides','final_grades','calendar_events','lesson_logs','user_settings','ai_conversations','ai_messages','ai_drafts','ai_evaluations'];
+export const TABLES: TableName[] = ['academic_years','study_groups','students','enrollments','grade_categories','assessment_events','grades','grade_policy_overrides','final_grades','calendar_events','lesson_logs','user_settings','ai_conversations','ai_messages','ai_drafts','ai_evaluations','overtime_hours'];
 /** מפתחות ייחודיים לצורך upsert (ברירת מחדל: id) */
 export const CONFLICT: Partial<Record<TableName, string>> = {
   grades: 'event_id,student_id,attempt', grade_policy_overrides: 'event_id,student_id',
-  final_grades: 'group_id,student_id,period', lesson_logs: 'calendar_event_id', user_settings: 'id',
+  final_grades: 'group_id,student_id,period', lesson_logs: 'calendar_event_id', user_settings: 'id', overtime_hours: 'year,month',
 };
 export const emptyDB = (): DB => Object.fromEntries(TABLES.map((t) => [t, []])) as unknown as DB;
