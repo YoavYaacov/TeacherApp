@@ -23,6 +23,10 @@ export const ERR_TEXT: Record<string, string> = {
   local_mode: 'זמין רק בגרסת הענן.',
   no_send_scope: 'חסרה הרשאת שליחת מייל מ-Gmail. יש לאשר אותה (כפתור למטה).',
   gmail_forbidden: 'Gmail סירב לשליחה. ייתכן ש-Gmail API לא הופעל בפרויקט Google (ראה הוראות ההתקנה).',
-  bad_input: 'הנמען או תוכן ההודעה אינם תקינים.',
+  bad_input: 'בקשת השליחה אינה תקינה.',
+  bad_month: 'אפשר לדווח רק מאוקטובר 2026.',
+  too_early: 'עדיין לא הגיע מועד השליחה של החודש הזה (מה-1 בחודש שאחריו).',
+  no_hours: 'לא נשמרו שעות לחודש הזה, ולכן אין מה לדווח.',
+  hours_changed: 'מספר השעות השמור השתנה. סגור את החלון ופתח אותו מחדש.',
 };
 export const errText = (e: string) => ERR_TEXT[e] ?? e;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OT_FIRST, beforeFirst, bump, canSendReport, hoursOf, sendableFrom, monthKey, monthLabel, shiftMonth } from './overtime';
-import { buildReport, isEmail } from './overtimeMail';
+import { buildReport, REPORT_TO } from './overtimeMail';
 
 describe('שעות נוספות', () => {
   it('מעבר בין חודשים ושנים', () => {
@@ -20,16 +20,11 @@ describe('שעות נוספות', () => {
   it('מפתח חודש', () => { expect(monthKey({ year: 2026, month: 3 })).toBe('2026-03'); });
   it('אין ערך שלילי', () => { expect(bump(0, -1)).toBe(0); expect(bump(2, -1)).toBe(1); expect(bump(2, 1)).toBe(3); });
   it('שם החודש בעברית עם שנה לועזית', () => { expect(monthLabel({ year: 2026, month: 10 })).toBe('אוקטובר 2026'); });
-  it('נוסח המייל', () => {
-    const r = buildReport({ year: 2026, month: 10 }, 12, ' יואב יעקב ');
+  it('נוסח המייל קבוע, הנמען קבוע', () => {
+    const r = buildReport({ year: 2026, month: 10 }, 12);
     expect(r.subject).toBe('דיווח שעות נוספות – אוקטובר 2026');
-    expect(r.body).toContain('לחודש אוקטובר 2026');
-    expect(r.body).toContain('סה״כ שעות נוספות: 12');
-    expect(r.body.endsWith('בברכה,\nיואב יעקב')).toBe(true);
-  });
-  it('בדיקת כתובת מייל', () => {
-    expect(isEmail('a@b.co')).toBe(true); expect(isEmail(' a.b+c@gmail.com ')).toBe(true);
-    for (const bad of ['', 'a', 'a@b', 'a b@c.d', 'a@b.c\nBcc: x@y.z', 'a@b.c,d@e.f', '<a@b.c>']) expect(isEmail(bad)).toBe(false);
+    expect(r.body).toBe('שלום,\n\nלהלן דיווח השעות הנוספות שלי לחודש אוקטובר 2026:\n\nסה״כ שעות נוספות: 12\n\nבברכה,\nיואב יעקב');
+    expect(REPORT_TO).toBe('israelp@amit.org.il');
   });
   it('החודש הראשון הוא אוקטובר 2026 ואין גלילה לפניו', () => {
     expect(OT_FIRST).toEqual({ year: 2026, month: 10 });

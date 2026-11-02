@@ -10,6 +10,8 @@ const FN_URL = `${SB_URL}/functions/v1/google-calendar`;
 const APP_URL = env('APP_URL').replace(/\/+$/, '');
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly'];
 const MAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+// דיווח שעות נוספות: נמען וחתימה קבועים (מוגדרים גם בלקוח, src/lib/overtimeMail.ts, לתצוגה בלבד). החודש הראשון: אוקטובר 2026.
+const OT_TO = 'israelp@amit.org.il', OT_NAME = 'יואב יעקב', OT_FIRST = 2026 * 12 + 10;
 const admin = createClient(SB_URL, env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, GET, OPTIONS' };
@@ -157,10 +159,15 @@ async function sync(): Promise<Record<string, unknown>> {
 // <mime>
 const utf8b64 = (s: string) => { const bytes = new TextEncoder().encode(s); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin); };
 const b64url = (s: string) => s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-/** הודעת טקסט פשוטה (UTF-8, base64) לשליחה דרך Gmail. הכותרת From נקבעת ע"י Gmail לפי החשבון המחובר. */
+const escHtml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const wrap76 = (b64: string) => (b64.match(/.{1,76}/g) ?? []).join('\r\n');
+/** הודעה בשני חלקים (טקסט + HTML): ה-HTML מיושר לימין (RTL) בגופן גדול וקריא; הטקסט הפשוט נשאר לגיבוי. הכותרת From נקבעת ע"י Gmail לפי החשבון המחובר. */
 function buildRawEmail(to: string, subject: string, body: string): string {
-  const wrapped = (utf8b64(body).match(/.{1,76}/g) ?? []).join('\r\n');
-  const mime = [`To: ${to}`, `Subject: =?UTF-8?B?${utf8b64(subject)}?=`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', wrapped].join('\r\n');
+  const html = `<div dir="rtl" style="direction:rtl;text-align:right;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.7;color:#202124">${escHtml(body).replace(/\n/g, '<br>')}</div>`;
+  const boundary = 'ta_' + crypto.randomUUID().replaceAll('-', '');
+  const part = (type: string, content: string) => [`--${boundary}`, `Content-Type: ${type}; charset="UTF-8"`, 'Content-Transfer-Encoding: base64', '', wrap76(utf8b64(content))].join('\r\n');
+  const mime = [`To: ${to}`, `Subject: =?UTF-8?B?${utf8b64(subject)}?=`, 'MIME-Version: 1.0', `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
+    part('text/plain', body), part('text/html', html), `--${boundary}--`, ''].join('\r\n');
   return b64url(utf8b64(mime));
 }
 // </mime>
@@ -225,22 +232,33 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
       case 'send_report': {
-        // שליחת דיווח שעות במייל מהחשבון המחובר של הבעלים. הפונקציה מאמתת בעלים; כאן מאמתים רק את הקלט.
-        const to = String(body.to ?? '').trim(), subject = String(body.subject ?? '').trim(), text = String(body.body ?? '');
-        const okMail = /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]+$/.test(to) && to.length <= 254;
-        if (!okMail || !subject || subject.length > 200 || /[\r\n]/.test(subject) || !text.trim() || text.length > 5000) return json({ error: 'bad_input' }, 400);
+        // דיווח שעות נוספות: השרת קובע בעצמו נמען, נושא, גוף וחתימה, ולוקח את השעות מ-Supabase.
+        // מהלקוח מתקבלים רק year, month ו-hours (לאימות שמה שהמשתמש אישר הוא מה שנשמר). to/subject/body מהבקשה מתעלמים מהם.
+        const year = Number(body.year), month = Number(body.month);
+        if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12 || year < 2000 || year > 2200) return json({ error: 'bad_input' }, 400);
+        if (year * 12 + month < OT_FIRST) return json({ error: 'bad_month' });
+        const ip = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: 'numeric' }).formatToParts(new Date()).filter((x) => x.type !== 'literal').map((x) => [x.type, Number(x.value)]));
+        if (ip.year * 12 + ip.month < year * 12 + month + 1) return json({ error: 'too_early' });
+        const { data: row, error: rowErr } = await admin.from('overtime_hours').select('hours').eq('year', year).eq('month', month).maybeSingle();
+        if (rowErr) throw new Error(rowErr.message);
+        const hours = Number(row?.hours ?? 0);
+        if (!Number.isInteger(hours) || hours <= 0) return json({ error: 'no_hours' });
+        if (body.hours !== undefined && Number(body.hours) !== hours) return json({ error: 'hours_changed' });
         const { data: cred } = await admin.from('google_credentials').select('scope').eq('id', true).maybeSingle();
         if (!cred) return json({ error: 'reauth_required' });
         if (!(cred.scope ?? '').includes('gmail.send')) return json({ error: 'no_send_scope' });
+        const label = new Intl.DateTimeFormat('he-IL', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(new Date(Date.UTC(year, month - 1, 1)));
+        const subject = `דיווח שעות נוספות – ${label}`;
+        const text = `שלום,\n\nלהלן דיווח השעות הנוספות שלי לחודש ${label}:\n\nסה״כ שעות נוספות: ${hours}\n\nבברכה,\n${OT_NAME}`;
         const token = await accessToken();
         const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-          method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: buildRawEmail(to, subject, text) }),
+          method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: buildRawEmail(OT_TO, subject, text) }),
         });
         const j = await r.json().catch(() => ({}));
         if (r.status === 401) throw new ReauthError('unauthorized');
         if (r.status === 403) return json({ error: /insufficient|scope/i.test(JSON.stringify(j)) ? 'no_send_scope' : 'gmail_forbidden', detail: j?.error?.message ?? null });
         if (!r.ok) throw new Error(`gmail: ${r.status} ${j?.error?.message ?? ''}`.trim());
-        return json({ ok: true, id: j.id ?? null });
+        return json({ ok: true, id: j.id ?? null, to: OT_TO });
       }
       case 'sync': return json(await sync());
       case 'disconnect': {

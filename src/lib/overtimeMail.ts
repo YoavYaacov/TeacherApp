@@ -1,12 +1,13 @@
-// נוסח הדיווח החודשי במייל. הנוסח קבוע (אושר פעם אחת); בכל חודש מתמלאים רק החודש, מספר השעות והחתימה.
+// נוסח הדיווח החודשי במייל. הנוסח, הנמען והחתימה קבועים; בכל חודש מתמלאים רק החודש והשעות מהמונה.
+// אותם ערכים מוגדרים גם בשרת (supabase/functions/google-calendar/index.ts): השרת הוא שקובע בפועל את הנמען והתוכן.
 import { monthLabel } from './overtime';
-export const isEmail = (s: string) => /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]+$/.test(s.trim()) && s.trim().length <= 254;
-export interface OtMailPrefs { to?: string; name?: string }
+export const REPORT_TO = 'israelp@amit.org.il';
+export const REPORT_NAME = 'יואב יעקב';
 export interface ReportSent { at: string; to: string }
-export function buildReport(ym: { year: number; month: number }, hours: number, name: string): { subject: string; body: string } {
+export function buildReport(ym: { year: number; month: number }, hours: number): { subject: string; body: string } {
   const m = monthLabel(ym);
   return {
     subject: `דיווח שעות נוספות – ${m}`,
-    body: `שלום,\n\nלהלן דיווח השעות הנוספות שלי לחודש ${m}:\n\nסה״כ שעות נוספות: ${hours}\n\nבברכה,\n${name.trim()}`,
+    body: `שלום,\n\nלהלן דיווח השעות הנוספות שלי לחודש ${m}:\n\nסה״כ שעות נוספות: ${hours}\n\nבברכה,\n${REPORT_NAME}`,
   };
 }

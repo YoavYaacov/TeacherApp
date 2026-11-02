@@ -419,3 +419,8 @@ html[data-theme='espresso'] { --doc-ok-bg:#24432E; --doc-ok-ink:#BDEBCB; --doc-b
 .privacy-card a:not(.btn) { color: var(--accent-text); text-decoration: underline; }
 .privacy-card .btn { text-decoration: none; display: inline-flex; color: var(--ink); }
 @media (max-width: 600px) { .privacy { padding: 12px; } .privacy-card { padding: 20px; } }
+
+/* חלון אישור דיווח שעות: תצוגה לקריאה בלבד */
+.ot-preview { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; }
+.ot-preview dt { color: var(--muted); } .ot-preview dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.ot-body { margin: 0; padding: 12px 16px; direction: rtl; text-align: right; font-size: 17px; line-height: 1.7; border: 1px solid var(--border); border-radius: 12px; background: var(--tint); font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
