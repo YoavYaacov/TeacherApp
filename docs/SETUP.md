@@ -89,3 +89,11 @@ npm run contrast   # ניגודיות ערכות הנושא
 2. **אפליקציה**: העלה ל-GitHub את קבצי השינויים; Vercel יבנה לבד. אין שינוי בפונקציות Edge, ואין צורך לפרוס אותן מחדש.
 3. עד שהמיגרציה רצה האפליקציה ממשיכה לעבוד כרגיל, ורק שמירת שעות נוספות תיכשל.
 4. הנתונים: רשומה אחת לכל חודש לועזי (שנה+חודש) עם שתי כמויות, ונכללים בגיבוי ובשחזור. גיבוי ישן (שנוצר לפני המיגרציה) ישוחזר כשהטבלה ריקה.
+
+## ט. מונה שעות יחיד ושליחת דיווח במייל (מיגרציה 0007 + עדכון google-calendar)
+1. **SQL**: Supabase ← SQL Editor ← New query ← הדבק את `supabase/migrations/0007_overtime_single_counter.sql` ← Run. מריצים פעם אחת, אחרי 0006. העמודה החדשה `hours` מתמלאת בסכום שתי הכמויות הישנות; שום נתון לא נמחק.
+2. **Google Cloud** (אותו פרויקט של היומן): APIs & Services ← Library ← **Gmail API** ← Enable. אחר כך OAuth consent screen ← Data access ← Add or remove scopes ← הוסף `.../auth/gmail.send`. ודא ש-Publishing status הוא In production (ב-Testing ההרשאה פגה כל 7 ימים).
+3. **פונקציה**: Supabase ← Edge Functions ← `google-calendar` ← הדבק את `supabase/functions/google-calendar/index.ts` המעודכן ← Deploy. **Verify JWT נשאר כבוי** (כמו קודם).
+4. **אפליקציה**: העלה ל-GitHub את קבצי השינויים; Vercel יבנה לבד.
+5. **הרשאה חד-פעמית**: מסך הבית ← שעות נוספות ← ״שלח דיווח במייל״ ← ״אשר הרשאת שליחה ב-Google״ ← באזהרת ״Google hasn't verified this app״ בחר Advanced ← Continue ← אשר. החיבור ליומן נשאר כמו שהיה.
+6. **שליחה**: בכל חודש בחר את החודש בכרטיס, ״שלח דיווח במייל״, בדוק את הנוסח ולחץ ״אשר ושלח״. הנמען והשם לחתימה נשמרים אחרי השליחה הראשונה. ההודעה יוצאת מחשבון ה-Gmail שלך ונשמרת בתיקיית ״נשלחו״.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { bump, monthLabel, otOf, shiftMonth } from './overtime';
+import { OT_FIRST, beforeFirst, bump, canSendReport, hoursOf, sendableFrom, monthKey, monthLabel, shiftMonth } from './overtime';
+import { buildReport, isEmail } from './overtimeMail';
 
 describe('שעות נוספות', () => {
   it('מעבר בין חודשים ושנים', () => {
@@ -7,10 +8,43 @@ describe('שעות נוספות', () => {
     expect(shiftMonth({ year: 2027, month: 1 }, -1)).toEqual({ year: 2026, month: 12 });
     expect(shiftMonth({ year: 2026, month: 10 }, -10)).toEqual({ year: 2025, month: 12 });
   });
-  it('חודש ללא רשומה מתחיל באפס', () => {
-    expect(otOf([{ year: 2026, month: 9, frontal_hours: 3, pedagogical_hours: 2 }], { year: 2026, month: 10 })).toEqual({ frontal_hours: 0, pedagogical_hours: 0 });
-    expect(otOf([{ year: 2026, month: 9, frontal_hours: 3, pedagogical_hours: 2 }], { year: 2026, month: 9 })).toEqual({ frontal_hours: 3, pedagogical_hours: 2 });
+  it('חודש ללא רשומה מתחיל באפס, ושורה עם hours נקראת ישירות', () => {
+    const rows = [{ year: 2026, month: 9, hours: 5 }];
+    expect(hoursOf(rows, { year: 2026, month: 10 })).toBe(0);
+    expect(hoursOf(rows, { year: 2026, month: 9 })).toBe(5);
+    expect(hoursOf([{ year: 2026, month: 9, hours: 0, frontal_hours: 4, pedagogical_hours: 1 }], { year: 2026, month: 9 })).toBe(0); // hours מפורש גובר
   });
+  it('שורה ישנה (משחזור גיבוי ישן) ללא hours: סכום שתי הכמויות', () => {
+    expect(hoursOf([{ year: 2026, month: 9, frontal_hours: 3, pedagogical_hours: 2 } as never], { year: 2026, month: 9 })).toBe(5);
+  });
+  it('מפתח חודש', () => { expect(monthKey({ year: 2026, month: 3 })).toBe('2026-03'); });
   it('אין ערך שלילי', () => { expect(bump(0, -1)).toBe(0); expect(bump(2, -1)).toBe(1); expect(bump(2, 1)).toBe(3); });
   it('שם החודש בעברית עם שנה לועזית', () => { expect(monthLabel({ year: 2026, month: 10 })).toBe('אוקטובר 2026'); });
+  it('נוסח המייל', () => {
+    const r = buildReport({ year: 2026, month: 10 }, 12, ' יואב יעקב ');
+    expect(r.subject).toBe('דיווח שעות נוספות – אוקטובר 2026');
+    expect(r.body).toContain('לחודש אוקטובר 2026');
+    expect(r.body).toContain('סה״כ שעות נוספות: 12');
+    expect(r.body.endsWith('בברכה,\nיואב יעקב')).toBe(true);
+  });
+  it('בדיקת כתובת מייל', () => {
+    expect(isEmail('a@b.co')).toBe(true); expect(isEmail(' a.b+c@gmail.com ')).toBe(true);
+    for (const bad of ['', 'a', 'a@b', 'a b@c.d', 'a@b.c\nBcc: x@y.z', 'a@b.c,d@e.f', '<a@b.c>']) expect(isEmail(bad)).toBe(false);
+  });
+  it('החודש הראשון הוא אוקטובר 2026 ואין גלילה לפניו', () => {
+    expect(OT_FIRST).toEqual({ year: 2026, month: 10 });
+    expect(beforeFirst({ year: 2026, month: 10 })).toBe(true); // כפתור "הקודם" מושבת כאן
+    expect(beforeFirst({ year: 2026, month: 11 })).toBe(false);
+  });
+  it('שליחה רק מה-1 לחודש שאחרי (שעון ישראל)', () => {
+    const oct = { year: 2026, month: 10 };
+    expect(canSendReport(oct, new Date('2026-10-31T23:59:00+02:00'))).toBe(false);
+    expect(canSendReport(oct, new Date('2026-10-15T12:00:00+03:00'))).toBe(false);
+    expect(canSendReport(oct, new Date('2026-10-31T22:30:00Z'))).toBe(true); // 00:30 ב-1.11 בישראל (UTC+2)
+    expect(canSendReport(oct, new Date('2026-11-01T00:00:01+02:00'))).toBe(true);
+    expect(canSendReport(oct, new Date('2027-03-01T12:00:00+02:00'))).toBe(true);
+    expect(canSendReport({ year: 2026, month: 11 }, new Date('2026-11-02T12:00:00+02:00'))).toBe(false);
+    expect(canSendReport({ year: 2026, month: 12 }, new Date('2027-01-01T00:00:00+02:00'))).toBe(true); // מעבר שנה
+    expect(sendableFrom({ year: 2026, month: 12 })).toBe('1 בינואר 2027');
+  });
 });

@@ -65,5 +65,27 @@ await db.exec(`insert into overtime_hours(year,month,frontal_hours) values (2026
 await q(`select restore_backup(null, $1::jsonb, 'merge', false, null) j`, [JSON.stringify({ overtime_hours: [{ year: 2026, month: 10, frontal_hours: 99, pedagogical_hours: 0 }, { year: 2026, month: 9, frontal_hours: 2, pedagogical_hours: 1 }] })]);
 ok((await q('select frontal_hours f from overtime_hours where year=2026 and month=10'))[0].f === 4, 'מיזוג לא דורס חודש קיים');
 ok((await q('select count(*)::int c from overtime_hours'))[0].c === 2, 'מיזוג מוסיף חודש חסר');
+
+// ───────── 0007: מונה יחיד ─────────
+await as(null);
+await db.exec(`reset role; delete from overtime_hours; insert into overtime_hours(year,month,frontal_hours,pedagogical_hours) values (2026,9,3,2),(2026,10,0,0),(2026,11,7,0);`);
+await mig('0007_overtime_single_counter');
+await db.exec(`grant all on overtime_hours to authenticated;`);
+await as(OWNER);
+const h = async (y: number, m: number) => (await q('select hours from overtime_hours where year=$1 and month=$2', [y, m]))[0].hours;
+ok((await h(2026, 9)) === 5 && (await h(2026, 10)) === 0 && (await h(2026, 11)) === 7, '0007: hours התמלא בסכום הכמויות הישנות');
+ok((await q('select frontal_hours f, pedagogical_hours p from overtime_hours where year=2026 and month=9'))[0].f === 3, '0007: העמודות הישנות לא נמחקו');
+ok((await fail(() => db.exec(`insert into overtime_hours(year,month,hours) values (2026,12,-1)`))) !== null, '0007: hours שלילי נדחה');
+await db.exec(`insert into overtime_hours(year,month,hours) values (2026,12,4)`);
+ok((await h(2026, 12)) === 4, '0007: הכנסה עם hours בלבד');
+await db.exec(`insert into overtime_hours(year,month,hours) values (2026,12,9) on conflict (year,month) do update set hours=excluded.hours`);
+ok((await h(2026, 12)) === 9, '0007: upsert של hours בלבד מעדכן את המונה');
+// שחזור שורות בצורה הישנה (גיבוי שנוצר לפני 0007): הטריגר ממלא hours מהסכום
+await q(`select restore_backup(null, $1::jsonb, 'merge', false, null) j`, [JSON.stringify({ overtime_hours: [{ year: 2025, month: 5, frontal_hours: 2, pedagogical_hours: 3 }] })]);
+ok((await h(2025, 5)) === 5, '0007: שחזור שורה ישנה (ללא hours) מחשב hours מהסכום');
+await q(`select restore_backup(null, $1::jsonb, 'merge', false, null) j`, [JSON.stringify({ overtime_hours: [{ year: 2025, month: 6, hours: 8 }] })]);
+ok((await h(2025, 6)) === 8, '0007: שחזור שורה חדשה');
+const snap2 = (await q('select export_backup() j'))[0].j;
+ok(snap2.data.overtime_hours.every((r: { hours: number }) => typeof r.hours === 'number'), '0007: ייצוא גיבוי כולל hours');
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
 process.exit(fails ? 1 : 0);

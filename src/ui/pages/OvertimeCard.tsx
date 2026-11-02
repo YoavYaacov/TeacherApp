@@ -1,25 +1,26 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Minus, Pencil, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mail, Minus, Pencil, Plus } from 'lucide-react';
 import { useStore } from '../../data/store';
-import { bump, monthLabel, monthOf, otOf, shiftMonth, type OtKind } from '../../lib/overtime';
+import { OT_FIRST, beforeFirst, bump, canSendReport, hoursOf, monthLabel, monthOf, sendableFrom, shiftMonth } from '../../lib/overtime';
+import { OvertimeReportModal } from './OvertimeReport';
 
-const KINDS: [OtKind, string][] = [['frontal_hours', 'הוראה פרונטלית'], ['pedagogical_hours', 'עבודה פדגוגית']];
-
-/** כרטיס "שעות נוספות" במסך הבית: רשומה אחת לחודש, עריכה בלחיצות +/− ושמירה אחת. */
+/** כרטיס "שעות נוספות" במסך הבית: מונה יחיד לחודש, עריכה בלחיצות +/− ושמירה אחת, ושליחת דיווח במייל. */
 export function OvertimeCard() {
   const store = useStore();
-  const [ym, setYm] = useState(() => monthOf(new Date()));
-  const [draft, setDraft] = useState<{ frontal_hours: number; pedagogical_hours: number } | null>(null);
+  const [ym, setYm] = useState(() => { const m = monthOf(new Date()); return beforeFirst(m) ? OT_FIRST : m; });
+  const [draft, setDraft] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  const saved = otOf(store.db.overtime_hours, ym);
-  const vals = draft ?? saved;
+  const [mail, setMail] = useState(false);
+  const sendable = canSendReport(ym);
+  const saved = hoursOf(store.db.overtime_hours, ym);
+  const value = draft ?? saved;
   const editing = draft !== null;
   const go = (d: number) => setYm((cur) => shiftMonth(cur, d));
   const save = async () => {
-    if (!draft) return;
-    if (draft.frontal_hours === saved.frontal_hours && draft.pedagogical_hours === saved.pedagogical_hours) { setDraft(null); return; }
+    if (draft === null) return;
+    if (draft === saved) { setDraft(null); return; }
     setBusy(true);
-    try { await store.save('overtime_hours', [{ year: ym.year, month: ym.month, ...draft }]); setDraft(null); }
+    try { await store.save('overtime_hours', [{ year: ym.year, month: ym.month, hours: draft }]); setDraft(null); }
     catch { /* ההודעה מוצגת בבאנר השגיאות הכללי; נשארים במצב עריכה כדי לא לאבד את השינוי */ }
     setBusy(false);
   };
@@ -27,29 +28,28 @@ export function OvertimeCard() {
     <section className="card" aria-label="שעות נוספות">
       <div className="ot-head">
         <h2>שעות נוספות</h2>
-        {!editing && <button className="btn sm" onClick={() => setDraft({ ...saved })}><Pencil size={14} aria-hidden />עריכה</button>}
+        {!editing && <button className="btn sm" onClick={() => setDraft(saved)}><Pencil size={14} aria-hidden />עריכה</button>}
       </div>
       <div className="ot-month">
-        <button className="icon-btn" aria-label="החודש הקודם" disabled={editing} onClick={() => go(-1)}><ChevronRight size={20} aria-hidden /></button>
+        <button className="icon-btn" aria-label="החודש הקודם" disabled={editing || beforeFirst(ym)} onClick={() => go(-1)}><ChevronRight size={20} aria-hidden /></button>
         <span aria-live="polite">{monthLabel(ym)}</span>
         <button className="icon-btn" aria-label="החודש הבא" disabled={editing} onClick={() => go(1)}><ChevronLeft size={20} aria-hidden /></button>
       </div>
       <div className="ot-rows">
-        {KINDS.map(([k, label]) => (
-          <div key={k} className="ot-row">
-            <span>{label}</span>
-            <span className="ot-ctl">
-              {editing && <button className="ot-step" aria-label={`הוסף שעה: ${label}`} onClick={() => setDraft({ ...vals, [k]: bump(vals[k], 1) })}><Plus size={20} aria-hidden /></button>}
-              <strong className="val" data-testid={`ot-${k}`}>{vals[k]}</strong>
-              {editing && <button className="ot-step" aria-label={`הפחת שעה: ${label}`} disabled={vals[k] <= 0} onClick={() => setDraft({ ...vals, [k]: bump(vals[k], -1) })}><Minus size={20} aria-hidden /></button>}
-            </span>
-          </div>))}
+        <div className="ot-row ot-single">
+          <span>סה״כ שעות החודש</span>
+          <span className="ot-ctl">
+            {editing && <button className="ot-step" aria-label="הוסף שעה" onClick={() => setDraft(bump(value, 1))}><Plus size={20} aria-hidden /></button>}
+            <strong className="val" data-testid="ot-hours">{value}</strong>
+            {editing && <button className="ot-step" aria-label="הפחת שעה" disabled={value <= 0} onClick={() => setDraft(bump(value, -1))}><Minus size={20} aria-hidden /></button>}
+          </span>
+        </div>
       </div>
-      <div className="ot-total"><span>סה״כ החודש</span><span data-testid="ot-total">{vals.frontal_hours + vals.pedagogical_hours}</span></div>
-      {editing && <div className="ot-actions">
-        <button className="btn primary" disabled={busy} onClick={save}>שמור</button>
-        <button className="btn" disabled={busy} onClick={() => setDraft(null)}>ביטול</button>
-      </div>}
+      {editing
+        ? <div className="ot-actions"><button className="btn primary" disabled={busy} onClick={save}>שמור</button><button className="btn" disabled={busy} onClick={() => setDraft(null)}>ביטול</button></div>
+        : <div className="ot-actions"><button className="btn" disabled={!sendable} onClick={() => setMail(true)}><Mail size={16} aria-hidden />שלח דיווח במייל</button></div>}
+      {!editing && !sendable && <p className="muted small" style={{ margin: '8px 0 0' }}>אפשר לשלוח את הדיווח של {monthLabel(ym)} החל מ-{sendableFrom(ym)}.</p>}
+      {mail && <OvertimeReportModal ym={ym} hours={saved} onClose={() => setMail(false)} />}
     </section>
   );
 }

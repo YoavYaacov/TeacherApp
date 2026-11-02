@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export interface GStatus { connected: boolean; connectedAt: string | null; calendar: { id: string; name: string | null } | null; lastSyncedAt: string | null; lastError: string | null; lastCounts: { created: number; updated: number; cancelled: number; skipped: number; full: boolean } | null }
+export interface GStatus { connected: boolean; canSend?: boolean; connectedAt: string | null; calendar: { id: string; name: string | null } | null; lastSyncedAt: string | null; lastError: string | null; lastCounts: { created: number; updated: number; cancelled: number; skipped: number; full: boolean } | null }
 export interface GCalendar { id: string; name: string; primary: boolean; accessRole: string; timeZone?: string }
 export interface SyncResult { ok?: boolean; error?: string; created?: number; updated?: number; cancelled?: number; skipped?: number; full?: boolean }
 
@@ -21,5 +21,8 @@ export const ERR_TEXT: Record<string, string> = {
   forbidden: 'אין הרשאה.',
   no_calendar: 'לא נבחר יומן.',
   local_mode: 'זמין רק בגרסת הענן.',
+  no_send_scope: 'חסרה הרשאת שליחת מייל מ-Gmail. יש לאשר אותה (כפתור למטה).',
+  gmail_forbidden: 'Gmail סירב לשליחה. ייתכן ש-Gmail API לא הופעל בפרויקט Google (ראה הוראות ההתקנה).',
+  bad_input: 'הנמען או תוכן ההודעה אינם תקינים.',
 };
 export const errText = (e: string) => ERR_TEXT[e] ?? e;

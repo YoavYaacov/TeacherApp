@@ -1,4 +1,4 @@
-// Edge Function: google-calendar — חיבור OAuth, בחירת יומן וייבוא אירועים (שלב 3א).
+// Edge Function: google-calendar — חיבור OAuth, בחירת יומן וייבוא אירועים (שלב 3א), ושליחת דיווח שעות נוספות במייל (send_report).
 // Secrets נדרשים: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APP_URL.
 // (SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY מסופקים אוטומטית.)
 // חשוב: להשבית "Verify JWT" לפונקציה זו (ה-callback של Google מגיע בלי JWT). כל פעולה אחרת מאמתת בעלים בעצמה.
@@ -9,6 +9,7 @@ const SB_URL = env('SUPABASE_URL');
 const FN_URL = `${SB_URL}/functions/v1/google-calendar`;
 const APP_URL = env('APP_URL').replace(/\/+$/, '');
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly'];
+const MAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const admin = createClient(SB_URL, env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, GET, OPTIONS' };
@@ -153,6 +154,17 @@ async function sync(): Promise<Record<string, unknown>> {
   }
 }
 
+// <mime>
+const utf8b64 = (s: string) => { const bytes = new TextEncoder().encode(s); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin); };
+const b64url = (s: string) => s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+/** הודעת טקסט פשוטה (UTF-8, base64) לשליחה דרך Gmail. הכותרת From נקבעת ע"י Gmail לפי החשבון המחובר. */
+function buildRawEmail(to: string, subject: string, body: string): string {
+  const wrapped = (utf8b64(body).match(/.{1,76}/g) ?? []).join('\r\n');
+  const mime = [`To: ${to}`, `Subject: =?UTF-8?B?${utf8b64(subject)}?=`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', wrapped].join('\r\n');
+  return b64url(utf8b64(mime));
+}
+// </mime>
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   const url = new URL(req.url);
@@ -187,13 +199,13 @@ Deno.serve(async (req) => {
         await admin.from('oauth_states').delete().lt('expires_at', new Date().toISOString());
         await admin.from('oauth_states').insert({ state });
         const u = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-        Object.entries({ client_id: env('GOOGLE_CLIENT_ID'), redirect_uri: FN_URL, response_type: 'code', scope: SCOPES.join(' '), access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state }).forEach(([k, v]) => u.searchParams.set(k, v));
+        Object.entries({ client_id: env('GOOGLE_CLIENT_ID'), redirect_uri: FN_URL, response_type: 'code', scope: (body.mail === true ? [...SCOPES, MAIL_SCOPE] : SCOPES).join(' '), access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state }).forEach(([k, v]) => u.searchParams.set(k, v));
         return json({ url: u.toString() });
       }
       case 'status': {
         const { data: c } = await admin.from('google_credentials').select('scope,connected_at').eq('id', true).maybeSingle();
         const { data: s } = await admin.from('calendar_sync_state').select('google_calendar_id,calendar_name,last_synced_at,last_error,last_counts').limit(1).maybeSingle();
-        return json({ connected: !!c, connectedAt: c?.connected_at ?? null, calendar: s ? { id: s.google_calendar_id, name: s.calendar_name } : null, lastSyncedAt: s?.last_synced_at ?? null, lastError: s?.last_error ?? null, lastCounts: s?.last_counts ?? null });
+        return json({ connected: !!c, canSend: !!c && (c.scope ?? '').includes('gmail.send'), connectedAt: c?.connected_at ?? null, calendar: s ? { id: s.google_calendar_id, name: s.calendar_name } : null, lastSyncedAt: s?.last_synced_at ?? null, lastError: s?.last_error ?? null, lastCounts: s?.last_counts ?? null });
       }
       case 'calendars': {
         const token = await accessToken();
@@ -211,6 +223,24 @@ Deno.serve(async (req) => {
         await admin.from('calendar_sync_state').delete().neq('google_calendar_id', id);
         await admin.from('calendar_sync_state').upsert({ google_calendar_id: id, calendar_name: c.summaryOverride ?? c.summary, time_zone: c.timeZone ?? 'Asia/Jerusalem', sync_token: null, full_synced_at: null, last_error: null });
         return json({ ok: true });
+      }
+      case 'send_report': {
+        // שליחת דיווח שעות במייל מהחשבון המחובר של הבעלים. הפונקציה מאמתת בעלים; כאן מאמתים רק את הקלט.
+        const to = String(body.to ?? '').trim(), subject = String(body.subject ?? '').trim(), text = String(body.body ?? '');
+        const okMail = /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]+$/.test(to) && to.length <= 254;
+        if (!okMail || !subject || subject.length > 200 || /[\r\n]/.test(subject) || !text.trim() || text.length > 5000) return json({ error: 'bad_input' }, 400);
+        const { data: cred } = await admin.from('google_credentials').select('scope').eq('id', true).maybeSingle();
+        if (!cred) return json({ error: 'reauth_required' });
+        if (!(cred.scope ?? '').includes('gmail.send')) return json({ error: 'no_send_scope' });
+        const token = await accessToken();
+        const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+          method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: buildRawEmail(to, subject, text) }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (r.status === 401) throw new ReauthError('unauthorized');
+        if (r.status === 403) return json({ error: /insufficient|scope/i.test(JSON.stringify(j)) ? 'no_send_scope' : 'gmail_forbidden', detail: j?.error?.message ?? null });
+        if (!r.ok) throw new Error(`gmail: ${r.status} ${j?.error?.message ?? ''}`.trim());
+        return json({ ok: true, id: j.id ?? null });
       }
       case 'sync': return json(await sync());
       case 'disconnect': {

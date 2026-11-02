@@ -6,11 +6,13 @@ import { SupabaseRepo } from '../data/supabaseRepo';
 import { StoreProvider } from '../data/store';
 import { App } from './App';
 import { applyTheme, type ThemeId } from './themes';
+import { PrivacyPage, isPrivacyPath } from './PrivacyPage';
 import { applyAnim, localAnim, initSliders } from './anim';
 
 export function Root() {
   useEffect(() => initSliders(), []);
   useEffect(() => { applyAnim(localAnim()); try { applyTheme((localStorage.getItem('teacher-app:theme') as ThemeId) || 'sky-blue'); } catch { applyTheme('sky-blue'); } }, []);
+  if (isPrivacyPath(window.location.pathname)) return <PrivacyPage />;
   if (!supabase) return <LocalApp />;
   return <AuthGate />;
 }
@@ -67,6 +69,7 @@ function Login() {
       <button className="btn" style={{ marginTop: 8 }} disabled={!email}
         onClick={async () => { const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } }); setMsg(error ? `שגיאה: ${error.message}` : 'נשלח קישור כניסה למייל. פתח אותו באותו דפדפן.'); }}>שלח קישור</button>
       {msg && <p role="status">{msg}</p>}
+      <p className="muted" style={{ marginTop: 16, marginBottom: 0 }}><a href="/privacy">מדיניות פרטיות</a></p>
     </div></div>
   );
 }

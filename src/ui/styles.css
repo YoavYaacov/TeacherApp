@@ -406,6 +406,16 @@ html[data-theme='espresso'] { --doc-ok-bg:#24432E; --doc-ok-ink:#BDEBCB; --doc-b
 .ot-step { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; display: grid; place-items: center; }
 .ot-step:disabled { opacity: .4; cursor: default; }
 @media (hover: hover) { .ot-step:not(:disabled):hover { background: var(--tint); } }
-.ot-total { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-weight: 700; }
+.ot-single { padding: 16px 14px; } .ot-single .val { font-size: 34px; }
 .ot-actions { display: flex; gap: 8px; margin-top: 14px; }
 .ot-actions .btn { flex: 1; justify-content: center; min-height: 44px; }
+
+/* דף מדיניות פרטיות ציבורי */
+.privacy { min-height: 100%; padding: 24px 16px; display: flex; justify-content: center; align-items: flex-start; overflow: auto; }
+.privacy-card { width: min(760px, 100%); padding: 32px; }
+.privacy-card h2 { margin: 28px 0 8px; }
+.privacy-card p, .privacy-card li { line-height: 1.7; }
+.privacy-card ul { padding-inline-start: 22px; margin: 8px 0; }
+.privacy-card a:not(.btn) { color: var(--accent-text); text-decoration: underline; }
+.privacy-card .btn { text-decoration: none; display: inline-flex; color: var(--ink); }
+@media (max-width: 600px) { .privacy { padding: 12px; } .privacy-card { padding: 20px; } }

@@ -1,5 +1,8 @@
 {
+  "trailingSlash": false,
+  "rewrites": [{ "source": "/privacy", "destination": "/index.html" }],
   "headers": [
+    { "source": "/privacy", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
     { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }, { "key": "Service-Worker-Allowed", "value": "/" }] },
     { "source": "/version.json", "headers": [{ "key": "Cache-Control", "value": "no-store" }] },
     { "source": "/manifest.webmanifest", "headers": [{ "key": "Cache-Control", "value": "no-cache" }, { "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }] },

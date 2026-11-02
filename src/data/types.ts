@@ -15,8 +15,8 @@ export interface AiConversation { id: string; title: string; context: AiContext;
 export interface AiMessage { id: string; conversation_id: string; role: 'user' | 'assistant'; content: string; blocks: unknown[]; sources: unknown[]; created_at: string }
 export interface AiDraft { id: string; conversation_id: string | null; kind: 'lesson_log' | 'evaluation'; target: Record<string, string>; payload: Record<string, unknown>; status: 'pending' | 'applied' | 'cancelled'; created_at: string; applied_at: string | null }
 export interface AiEvaluation { id: string; group_id: string; student_id: string; period: 'h1' | 'h2' | 'annual'; text: string; params: Record<string, unknown>; created_at: string; updated_at: string }
-/** שעות נוספות: רשומה אחת לכל חודש לועזי (שנה+חודש 1–12) */
-export interface OvertimeHours { year: number; month: number; frontal_hours: number; pedagogical_hours: number }
+/** שעות נוספות: רשומה אחת לכל חודש לועזי. hours = המונה היחיד. שתי העמודות הישנות נשארות בענן לתאימות לגיבויים ישנים. */
+export interface OvertimeHours { year: number; month: number; hours: number; frontal_hours?: number; pedagogical_hours?: number }
 export interface UserSettings { id: true; theme: string; prefs: Record<string, unknown> }
 
 export interface DB {
