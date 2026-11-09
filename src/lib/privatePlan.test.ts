@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarEvent } from '../data/types';
-import { DEFAULT_AVAIL, check, emptyPlan, israelMinutes, mergeSpans, parseHM, readPlan, removeItem, schoolBlocks, stats, unplace, upsertItem, type PlanItem, type PrivatePlan } from './privatePlan';
+import { DEFAULT_AVAIL, check, lessonUnits, emptyPlan, israelMinutes, mergeSpans, parseHM, readPlan, removeItem, schoolBlocks, stats, unplace, upsertItem, type PlanItem, type PrivatePlan } from './privatePlan';
 
 const ev = (id: string, start: string, end: string, o: Partial<CalendarEvent> = {}): CalendarEvent => ({ id, group_id: null, title: 't', start_at: start, end_at: end, status: 'confirmed', source: 'google', ...o });
 const mk = (id: string, name: string, day: number | null, start: number | null, dur = 60, kind: 'fixed' | 'optional' = 'fixed'): PlanItem => ({ id, name, day, start, dur, kind });
@@ -67,13 +67,14 @@ describe('פעולות', () => {
     const p = upsertItem(plan([mk('1', 'רגב', 1, 840), mk('2', 'רגב', 3, 840, 60, 'optional'), mk('3', 'דרור', 2, 600)]), { ...mk('1', 'רגב י', 1, 840) });
     expect(p.items.map((i) => i.name)).toEqual(['רגב י', 'רגב י', 'דרור']);
   });
+  it('שיעור כפול נספר כשניים', () => { expect([30, 45, 60, 90, 120, 180].map(lessonUnits)).toEqual([1, 1, 1, 1, 2, 3]); });
   it('הוספה ומחיקה', () => { const p = upsertItem(plan([]), mk('x', 'חדש', null, null, 120)); expect(p.items).toHaveLength(1); expect(removeItem(p, 'x').items).toHaveLength(0); });
   it('סטטיסטיקה: קבועים בלבד, ממתינים, משבצות פנויות', () => {
     const school = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
     const base = stats(plan([]), school).free;
     expect(base).toBe(Object.values(DEFAULT_AVAIL).flat().length);
     const s = stats(plan([mk('1', 'א', 2, 14 * 60, 120), mk('2', 'א', 3, 600, 60, 'optional'), mk('3', 'ב', 4, 20 * 60 + 30), mk('4', 'ג', null, null, 120)]), school);
-    expect(s).toEqual({ students: 2, weekly: 2, waiting: 1, free: base - 4 }); // 14:00,15:00 ביום שלישי, 10:00 ברביעי (אופציונלי) ו-20:30 בחמישי תפוסים; האופציונלי לא נחשב לשיעור שבועי
+    expect(s).toEqual({ students: 2, weekly: 3, waiting: 1, free: base - 4 }); // 14:00,15:00 ביום שלישי, 10:00 ברביעי (אופציונלי) ו-20:30 בחמישי תפוסים; האופציונלי לא נחשב לשיעור שבועי
   });
 });
 describe('קריאה מההגדרות', () => {

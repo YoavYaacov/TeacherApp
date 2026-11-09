@@ -95,6 +95,8 @@ export function check(plan: PrivatePlan, school: Record<number, Span[]>, p: { da
   };
 }
 
+/** שיעור כפול (120 דקות) נספר כשני שיעורים: שעה = שיעור, ומינימום אחד לכל שיבוץ */
+export const lessonUnits = (dur: number) => Math.max(1, Math.floor(dur / 60));
 export interface Stats { students: number; weekly: number; waiting: number; free: number }
 export function stats(plan: PrivatePlan, school: Record<number, Span[]>): Stats {
   const norm = (n: string) => n.trim().toLowerCase();
@@ -106,7 +108,7 @@ export function stats(plan: PrivatePlan, school: Record<number, Span[]>): Stats 
     if (plan.items.some((i) => isPlaced(i) && i.day === d && overlap(sp, spanOf(i)))) continue;
     free++;
   }
-  return { students: new Set(fixed.map((i) => norm(i.name))).size, weekly: fixed.length, waiting: plan.items.filter((i) => !isPlaced(i)).length, free };
+  return { students: new Set(fixed.map((i) => norm(i.name))).size, weekly: fixed.reduce((n, i) => n + lessonUnits(i.dur), 0), waiting: plan.items.filter((i) => !isPlaced(i)).length, free };
 }
 
 // ───────── פעולות (פונקציות טהורות על התוכנית) ─────────
