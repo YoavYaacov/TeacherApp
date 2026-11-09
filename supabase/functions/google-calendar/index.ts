@@ -69,6 +69,38 @@ const norm = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
 
 interface GEvent { id: string; status?: string; summary?: string; etag?: string; recurringEventId?: string; eventType?: string; start?: { date?: string; dateTime?: string }; end?: { date?: string; dateTime?: string } }
 
+/** שינוי כותרת על "אירוע זה וכל הבאים" גורם ל-Google לפצל סדרה: הישנים מסומנים כמבוטלים והחדשים מגיעים עם מזהים חדשים.
+ *  כאן אירוע מבוטל שיש לו תאום פעיל (אותו יומן, אותה שעת התחלה וסיום) נחשב החלפה ולא ביטול: השיוך לקבוצה והתיעוד עוברים לחדש והישן נמחק.
+ *  ביטול אמיתי (בלי תאום) לא משתנה. אם בשני האירועים יש תיעוד, לא נוגעים בהם. */
+async function replaceCancelledTwins(calId: string, windowMin: string): Promise<number> {
+  const { data: canc } = await admin.from('calendar_events').select('id,start_at,end_at,group_id,local_dirty').eq('google_calendar_id', calId).eq('source', 'google').eq('status', 'cancelled').gte('start_at', windowMin);
+  const cancelled = (canc ?? []).filter((c) => !c.local_dirty);
+  if (!cancelled.length) return 0;
+  const key = (r: { start_at: string; end_at: string }) => `${new Date(r.start_at).getTime()}|${new Date(r.end_at).getTime()}`;
+  const live = new Map<string, { id: string; group_id: string | null }>();
+  for (const part of chunk([...new Set(cancelled.map((c) => c.start_at as string))], 80)) {
+    const { data, error } = await admin.from('calendar_events').select('id,start_at,end_at,group_id').eq('google_calendar_id', calId).eq('status', 'confirmed').in('start_at', part);
+    if (error) throw new Error(error.message);
+    for (const r of data ?? []) if (!live.has(key(r))) live.set(key(r), { id: r.id, group_id: r.group_id });
+  }
+  let replaced = 0;
+  for (const c of cancelled) {
+    const t = live.get(key(c));
+    if (!t || t.id === c.id) continue;
+    const { data: lc } = await admin.from('lesson_logs').select('*').eq('calendar_event_id', c.id).maybeSingle();
+    const { data: lt } = await admin.from('lesson_logs').select('calendar_event_id').eq('calendar_event_id', t.id).maybeSingle();
+    const hasContent = !!(lc && (lc.topic || lc.learned || lc.homework || lc.private_note || (lc.completion && lc.completion !== 'pending')));
+    if (lc && lt && hasContent) continue; // תיעוד בשני האירועים: משאירים לטיפול ידני
+    if (lc && !lt && hasContent) { const { error } = await admin.from('lesson_logs').update({ calendar_event_id: t.id }).eq('calendar_event_id', c.id); if (error) throw new Error(error.message); }
+    else if (lc) { const { error } = await admin.from('lesson_logs').delete().eq('calendar_event_id', c.id); if (error) throw new Error(error.message); }
+    if (!t.group_id && c.group_id) { const { error } = await admin.from('calendar_events').update({ group_id: c.group_id }).eq('id', t.id); if (error) throw new Error(error.message); t.group_id = c.group_id; }
+    const { error } = await admin.from('calendar_events').delete().eq('id', c.id);
+    if (error) throw new Error(error.message);
+    replaced++;
+  }
+  return replaced;
+}
+
 async function sync(): Promise<Record<string, unknown>> {
   const { data: st } = await admin.from('calendar_sync_state').select('*').limit(1).maybeSingle();
   if (!st) return { error: 'no_calendar' };
@@ -145,8 +177,9 @@ async function sync(): Promise<Record<string, unknown>> {
       for (const part of chunk(gone, 80)) { const { error } = await admin.from('calendar_events').update({ status: 'cancelled' }).eq('google_calendar_id', calId).in('google_event_id', part); if (error) throw new Error(error.message); }
       vanished = gone.length;
     }
+    const replaced = await replaceCancelledTwins(calId, windowMin);
     // הטוקן נשמר רק אחרי שכל הכתיבות הצליחו
-    const counts = { created: toInsert.length, updated: toUpdate.length, cancelled: cancelIds.length + vanished, skipped, full };
+    const counts = { created: toInsert.length, updated: toUpdate.length, cancelled: Math.max(0, cancelIds.length + vanished - replaced), replaced, skipped, full };
     await admin.from('calendar_sync_state').update({ sync_token: nextSyncToken, last_synced_at: new Date().toISOString(), last_error: null, last_counts: counts, ...(full ? { full_synced_at: new Date().toISOString() } : {}) }).eq('google_calendar_id', calId);
     return { ok: true, ...counts };
   } catch (e) {

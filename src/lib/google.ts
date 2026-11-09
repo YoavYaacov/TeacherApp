@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 
 export interface GStatus { connected: boolean; canSend?: boolean; connectedAt: string | null; calendar: { id: string; name: string | null } | null; lastSyncedAt: string | null; lastError: string | null; lastCounts: { created: number; updated: number; cancelled: number; skipped: number; full: boolean } | null }
 export interface GCalendar { id: string; name: string; primary: boolean; accessRole: string; timeZone?: string }
-export interface SyncResult { ok?: boolean; error?: string; created?: number; updated?: number; cancelled?: number; skipped?: number; full?: boolean }
+export interface SyncResult { ok?: boolean; error?: string; created?: number; updated?: number; cancelled?: number; replaced?: number; skipped?: number; full?: boolean }
 
 export async function gcal<T = Record<string, unknown>>(action: string, extra: Record<string, unknown> = {}): Promise<T & { error?: string }> {
   if (!supabase) return { error: 'local_mode' } as T & { error: string };

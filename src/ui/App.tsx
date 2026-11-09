@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, GraduationCap, Home, LogOut, Settings as Cog, Sparkles, type LucideIcon } from 'lucide-react';
+import { CalendarDays, GraduationCap, Home, LogOut, Settings as Cog, Sparkles, UserRound, type LucideIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { gcal, type SyncResult } from '../lib/google';
 import { useStore } from '../data/store';
@@ -12,6 +12,7 @@ import { AssistantPage } from './pages/AssistantPage';
 import { HomePage } from './pages/HomePage';
 import { GroupsPage } from './pages/GroupsPage';
 import { CalendarPage } from './pages/CalendarPage';
+import { PrivatePage } from './pages/PrivatePage';
 import { SettingsPage } from './pages/SettingsPage';
 
 // חזרה מ-Google (OAuth): ?google=<תוצאה> => פתיחת הגדרות > יומן והצגת התוצאה. מחושב פעם אחת בטעינת המודול.
@@ -25,16 +26,16 @@ const BOOT_GOOGLE = (() => {
   } catch { return false; }
 })();
 
-const HOME = { id: 'home' as Page, label: 'בית', Icon: Home }, GROUPS = { id: 'groups' as Page, label: 'קבוצות לימוד', Icon: GraduationCap }, CAL = { id: 'calendar' as Page, label: 'יומן', Icon: CalendarDays }, SET = { id: 'settings' as Page, label: 'הגדרות', Icon: Cog };
+const HOME = { id: 'home' as Page, label: 'בית', Icon: Home }, GROUPS = { id: 'groups' as Page, label: 'קבוצות לימוד', Icon: GraduationCap }, CAL = { id: 'calendar' as Page, label: 'יומן', Icon: CalendarDays }, PRIV = { id: 'private' as Page, label: 'שיעורים פרטיים', Icon: UserRound };
 const AI = { id: 'assistant' as Page, label: 'עוזר אישי', Icon: Sparkles };
 type NavItem = { id: Page; label: string; Icon: LucideIcon };
-const NAV: NavItem[] = [HOME, { ...AI, label: 'העוזר האישי' }, GROUPS, CAL, SET];       // סרגל צד
-const BOTTOM: NavItem[] = [HOME, GROUPS, AI, CAL, SET];                                   // סרגל תחתון: ✨ במרכז
+const NAV: NavItem[] = [HOME, { ...AI, label: 'העוזר האישי' }, GROUPS, CAL, PRIV];     // סרגל צד (ההגדרות: גלגל השיניים בסרגל העליון)
+const BOTTOM: NavItem[] = [HOME, GROUPS, AI, CAL, { ...PRIV, label: 'פרטיים' }];                                   // סרגל תחתון: ✨ במרכז
 
 export function App({ userEmail, signOut }: { userEmail: string | null; signOut: (() => void) | null }) {
   const store = useStore();
   const { db, ready, error, saving, kind } = store;
-  const PAGES: Page[] = ['home', 'groups', 'calendar', 'settings', 'assistant'];
+  const PAGES: Page[] = ['home', 'groups', 'calendar', 'private', 'settings', 'assistant'];
   const [page, setPage] = useState<Page>(BOOT_GOOGLE ? 'settings' : PAGES.includes(boot.page as Page) ? (boot.page as Page) : 'home');
   const [groupId, setGroupId] = useState<string | null>(BOOT_GOOGLE ? null : boot.groupId ?? null);
   useEffect(() => { saveView({ page, groupId }); }, [page, groupId]);
@@ -89,7 +90,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
         const r = await gcal<SyncResult>('sync');
         if (r.error === 'no_calendar' || r.error === 'not_deployed' || r.error === 'forbidden') gStop.current = true;
         else if (r.error === 'reauth_required') { gStop.current = true; setGReauth(true); }
-        else if (r.ok && ((r.created ?? 0) + (r.updated ?? 0) + (r.cancelled ?? 0)) > 0) {
+        else if (r.ok && ((r.created ?? 0) + (r.updated ?? 0) + (r.cancelled ?? 0) + (r.replaced ?? 0)) > 0) {
           // לא טוענים מחדש בזמן שיש שמירות בהמשך, כדי לא להציג מצב ישן מעל עריכה שעוד לא נשמרה
           for (let i = 0; i < 40 && savingRef.current > 0; i++) await new Promise((res) => setTimeout(res, 250));
           await reloadRef.current();
@@ -123,6 +124,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
           <header className="topbar">
             <span className="status" role="status">{saving > 0 ? 'שומר…' : 'הכול נשמר'}</span>
             {kind === 'local' && <span className="pill" title="הנתונים נשמרים בדפדפן של המכשיר הזה בלבד. גבה אותם ב״הגדרות > גיבויים ונתונים״.">מצב מקומי</span>}
+            <button className="icon-btn" aria-label="הגדרות" title="הגדרות" aria-current={page === 'settings' ? 'page' : undefined} onClick={() => go('settings')}><Cog size={18} /></button>
             {signOut && <button className="icon-btn" aria-label="התנתק" title={userEmail ? `התנתק (${userEmail})` : 'התנתק'} onClick={signOut}><LogOut size={18} /></button>}
           </header>
           <main>
@@ -133,6 +135,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
               {page === 'home' && <HomePage />}
               {page === 'groups' && <GroupsPage />}
               {page === 'calendar' && <CalendarPage />}
+              {page === 'private' && <PrivatePage />}
               {page === 'assistant' && <AssistantPage />}
               {page === 'settings' && <SettingsPage userEmail={userEmail} signOut={signOut} />}
             </div>

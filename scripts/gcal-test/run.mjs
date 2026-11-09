@@ -72,6 +72,34 @@ events = [{ id: 'e2', summary: 'ישיבת צוות', start: { dateTime: '2026-1
 r = await post({ action: 'sync' });
 ok(tables.calendar_events.find((e) => e.google_event_id === 'e4').status === 'confirmed', 'אירוע שבוטל וחזר ב-Google חוזר לפעיל');
 ok(tables.calendar_events.find((e) => e.google_event_id === 'e2').group_id === 'g1', 'אירוע בלי קבוצה מקבל שיוך לפי כלל חדש');
+// החלפה (פיצול סדרה אחרי שינוי כותרת): הישן מבוטל והחדש מגיע במזהה אחר
+{
+  const t0 = tables.calendar_events.length;
+  const cal = (o) => ({ id: `id-${o.g}`, google_calendar_id: 'cal1', source: 'google', status: 'confirmed', local_dirty: false, hidden: false, all_day: false, ...o });
+  tables.calendar_events.push(cal({ id: 'old1', google_event_id: 'o1', title: 'שיעור ישן', group_id: 'g1', start_at: '2026-10-20T06:00:00.000Z', end_at: '2026-10-20T06:45:00.000Z', g: 1 }));
+  tables.calendar_events.push(cal({ id: 'old2', google_event_id: 'o2', title: 'בוטל באמת', group_id: 'g1', start_at: '2026-10-21T06:00:00.000Z', end_at: '2026-10-21T06:45:00.000Z', g: 2 }));
+  tables.lesson_logs = [{ calendar_event_id: 'old1', topic: 'נושא שנכתב', completion: 'done' }];
+  events = [{ id: 'o1', status: 'cancelled' }, { id: 'o2', status: 'cancelled' }, { id: 'new1', summary: 'כותרת חדשה', start: { dateTime: '2026-10-20T09:00:00+03:00' }, end: { dateTime: '2026-10-20T09:45:00+03:00' } }];
+  r = await post({ action: 'sync' });
+  const n1 = tables.calendar_events.find((e) => e.google_event_id === 'new1');
+  ok(r.ok && r.replaced === 1 && r.cancelled === 1, 'החלפה נספרה, ביטול אמיתי נספר: ' + JSON.stringify(r));
+  ok(!tables.calendar_events.some((e) => e.google_event_id === 'o1'), 'הישן נמחק (אין כפילות מבוטלת)');
+  ok(n1 && n1.group_id === 'g1' && n1.status === 'confirmed', 'השיוך לקבוצה עבר לחדש');
+  ok(tables.lesson_logs.length === 1 && tables.lesson_logs[0].calendar_event_id === n1.id && tables.lesson_logs[0].topic === 'נושא שנכתב', 'התיעוד עבר לחדש');
+  ok(tables.calendar_events.find((e) => e.google_event_id === 'o2').status === 'cancelled', 'ביטול אמיתי ללא תאום נשאר מבוטל');
+  // כפילות שכבר קיימת מסנכרון קודם נוקתה בסנכרון הבא
+  tables.calendar_events.push(cal({ id: 'dupC', google_event_id: 'd1', title: 'ישן', group_id: null, status: 'cancelled', start_at: '2026-10-22T06:00:00.000Z', end_at: '2026-10-22T06:45:00.000Z', g: 3 }));
+  tables.calendar_events.push(cal({ id: 'dupL', google_event_id: 'd2', title: 'חדש', group_id: null, start_at: '2026-10-22T06:00:00.000Z', end_at: '2026-10-22T06:45:00.000Z', g: 4 }));
+  events = [];
+  r = await post({ action: 'sync' });
+  ok(r.replaced === 1 && !tables.calendar_events.some((e) => e.id === 'dupC') && tables.calendar_events.some((e) => e.id === 'dupL'), 'כפילות קיימת (מבוטל + פעיל) נוקתה');
+  // תיעוד בשניהם: לא נוגעים
+  tables.calendar_events.push(cal({ id: 'bC', google_event_id: 'b1', title: 'א', status: 'cancelled', group_id: 'g1', start_at: '2026-10-23T06:00:00.000Z', end_at: '2026-10-23T06:45:00.000Z', g: 5 }));
+  tables.calendar_events.push(cal({ id: 'bL', google_event_id: 'b2', title: 'ב', group_id: 'g1', start_at: '2026-10-23T06:00:00.000Z', end_at: '2026-10-23T06:45:00.000Z', g: 6 }));
+  tables.lesson_logs.push({ calendar_event_id: 'bC', topic: 'x', completion: 'pending' }, { calendar_event_id: 'bL', topic: 'y', completion: 'pending' });
+  r = await post({ action: 'sync' });
+  ok(tables.calendar_events.some((e) => e.id === 'bC') && tables.lesson_logs.length === 3, 'תיעוד בשני האירועים: שניהם נשארים');
+}
 // כשל באמצע: הטוקן לא מתקדם
 const tokBefore = tables.calendar_sync_state[0].sync_token;
 globalThis.fetch = async (url) => (String(url).includes('oauth2') ? Response.json({ error: 'invalid_grant' }, { status: 400 }) : new Response('', { status: 500 }));

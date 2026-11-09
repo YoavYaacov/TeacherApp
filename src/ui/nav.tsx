@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { AiContext } from '../data/types';
-export type Page = 'home' | 'groups' | 'calendar' | 'settings' | 'assistant';
+export type Page = 'home' | 'groups' | 'calendar' | 'private' | 'settings' | 'assistant';
 export interface Nav {
   page: Page; groupId: string | null; go(page: Page, groupId?: string | null): void;
   /** פתיחת העוזר האישי, אופציונלית עם הקשר (מערכת/קבוצה/תלמיד/שיעור) */
