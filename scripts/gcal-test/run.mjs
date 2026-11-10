@@ -3,9 +3,10 @@ import { tables } from './fake-sb.mjs';
 await build({ entryPoints: [new URL('../../supabase/functions/google-calendar/index.ts', import.meta.url).pathname], bundle: true, format: 'esm', outfile: new URL('./.fn.mjs', import.meta.url).pathname, alias: { 'npm:@supabase/supabase-js@2': new URL('./fake-sb.mjs', import.meta.url).pathname }, logLevel: 'error' });
 let handler; const envs = { SUPABASE_URL: 'https://x.supabase.co', GOOGLE_CLIENT_ID: 'cid', GOOGLE_CLIENT_SECRET: 's', APP_URL: 'https://app.test' };
 globalThis.Deno = { env: { get: (k) => envs[k] }, serve: (h) => { handler = h; } };
-let events = []; let calls = []; let gone = false;
+const gmail = []; let events = []; let calls = []; let gone = false;
 globalThis.fetch = async (url, init) => {
   const u = new URL(String(url)); calls.push(u.pathname + '?' + u.searchParams.toString());
+  if (u.hostname === 'gmail.googleapis.com') { gmail.push(JSON.parse(init.body).raw); return Response.json({ id: 'm1' }); }
   if (u.hostname === 'oauth2.googleapis.com') return Response.json({ access_token: 'at', refresh_token: 'rt', scope: 's' });
   if (u.pathname.endsWith('/events')) { if (gone && u.searchParams.get('syncToken')) { gone = false; return new Response('', { status: 410 }); } return Response.json({ items: events, nextSyncToken: 'tok' + calls.length }); }
   return new Response('{}', { status: 404 });
@@ -99,6 +100,35 @@ ok(tables.calendar_events.find((e) => e.google_event_id === 'e2').group_id === '
   tables.lesson_logs.push({ calendar_event_id: 'bC', topic: 'x', completion: 'pending' }, { calendar_event_id: 'bL', topic: 'y', completion: 'pending' });
   r = await post({ action: 'sync' });
   ok(tables.calendar_events.some((e) => e.id === 'bC') && tables.lesson_logs.length === 3, 'תיעוד בשני האירועים: שניהם נשארים');
+}
+// שליחת דיווח שעות: הנמען והתוכן נקבעים בשרת; החודש, המועד והמונים נבדקים מול ה-DB
+{
+  tables.google_credentials[0].scope = 'calendar gmail.send';
+  const decode = (raw) => Buffer.from(raw.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+  const send = (o) => post({ action: 'send_report', ...o });
+  tables.overtime_hours = [];
+  r = await send({ year: 2026, month: 10 });
+  ok(r.error === 'no_hours' && gmail.length === 0, 'חודש בלי שורה: אין מה לדווח, לא נשלח');
+  tables.overtime_hours = [{ year: 2026, month: 10, frontal_hours: 3, pedagogical_hours: 1, individual_hours: null, hours: 4 }];
+  r = await send({ year: 2026, month: 10 });
+  ok(r.error === 'no_hours' && gmail.length === 0, 'שורה ישנה (בלי individual_hours): כמו חודש חדש, לא נשלח');
+  tables.overtime_hours = [{ year: 2026, month: 10, frontal_hours: 2, individual_hours: 0, pedagogical_hours: 7 }];
+  r = await send({ year: 2026, month: 10, counters: { frontal: 2, individual: 0, stay: 6 } });
+  ok(r.error === 'hours_changed' && gmail.length === 0, 'מונים שאושרו שונים מהשמורים: נחסם');
+  r = await send({ year: 2026, month: 10, to: 'evil@example.com', subject: 'x', body: 'y', counters: { frontal: 2, individual: 0, stay: 7 } });
+  const mime = gmail.length ? decode(gmail[0]) : '';
+  const bodyB64 = (mime.split('text/plain; charset="UTF-8"')[1] ?? '').split('\r\n\r\n')[1]?.split('\r\n--')[0] ?? '';
+  const text = Buffer.from(bodyB64.replace(/\r\n/g, ''), 'base64').toString('utf8');
+  ok(r.ok === true && gmail.length === 1, 'נשלח');
+  ok(/^To: israelp@amit\.org\.il\r\n/.test(mime) && !mime.includes('evil@example.com'), 'הנמען קבוע בשרת, בקשה עם נמען אחר מתעלמת ממנו');
+  ok(text.includes('פרונטליות: 2') && text.includes('פרטני: 0') && text.includes('שהייה: 7') && !text.includes('סה״כ') && text.endsWith('יואב יעקב') && !text.includes('y'.repeat(1) + '\n'), 'הגוף נבנה בשרת עם שלושת המונים');
+  r = await send({ year: 2026, month: 12, counters: { frontal: 2, individual: 0, stay: 7 } });
+  ok(r.error === 'too_early', 'לפני ה-1 בחודש שאחרי: נחסם גם בקריאה ישירה');
+  r = await send({ year: 2026, month: 9 });
+  ok(r.error === 'bad_month', 'לפני אוקטובר 2026: נחסם');
+  r = await send({ year: 2026, month: 13 });
+  ok(r.error === 'bad_input', 'חודש לא תקין');
+  gmail.length = 0;
 }
 // כשל באמצע: הטוקן לא מתקדם
 const tokBefore = tables.calendar_sync_state[0].sync_token;

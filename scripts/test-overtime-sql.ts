@@ -87,5 +87,27 @@ await q(`select restore_backup(null, $1::jsonb, 'merge', false, null) j`, [JSON.
 ok((await h(2025, 6)) === 8, '0007: שחזור שורה חדשה');
 const snap2 = (await q('select export_backup() j'))[0].j;
 ok(snap2.data.overtime_hours.every((r: { hours: number }) => typeof r.hours === 'number'), '0007: ייצוא גיבוי כולל hours');
+
+// ───────── 0008: שלושה מונים ─────────
+await as(null);
+await mig('0008_overtime_three_counters');
+await db.exec(`grant all on overtime_hours to authenticated;`);
+await as(OWNER);
+const ind = async (y: number, m: number) => (await q('select individual_hours i from overtime_hours where year=$1 and month=$2', [y, m]))[0].i;
+ok((await ind(2026, 9)) === null && (await h(2026, 9)) === 5, '0008: שורות קיימות נשארות כמו שהן (individual_hours ריק, hours נשמר)');
+await db.exec(`insert into overtime_hours(year,month,frontal_hours,individual_hours,pedagogical_hours) values (2027,1,4,1,8)`);
+const r8 = (await q('select frontal_hours f, individual_hours i, pedagogical_hours p from overtime_hours where year=2027 and month=1'))[0];
+ok(r8.f === 4 && r8.i === 1 && r8.p === 8, '0008: שלושה מונים נשמרים');
+await db.exec(`insert into overtime_hours(year,month,frontal_hours,individual_hours,pedagogical_hours) values (2026,9,0,0,6) on conflict (year,month) do update set frontal_hours=excluded.frontal_hours, individual_hours=excluded.individual_hours, pedagogical_hours=excluded.pedagogical_hours`);
+ok((await ind(2026, 9)) === 0 && (await h(2026, 9)) === 5, '0008: upsert של המונים החדשים על שורה ישנה (hours הישן לא נמחק)');
+ok((await fail(() => db.exec(`insert into overtime_hours(year,month,individual_hours) values (2027,2,-1)`))) !== null, '0008: פרטני שלילי נדחה');
+const snap3 = (await q('select export_backup() j'))[0].j;
+ok(snap3.data.overtime_hours.some((r: { individual_hours: number | null }) => r.individual_hours === 1), '0008: ייצוא גיבוי כולל individual_hours');
+const bid3 = (await q(`select create_data_backup('manual','t3') id`))[0].id;
+await db.exec(`delete from overtime_hours`);
+await q(`select restore_backup($1, null, 'replace', false, 'REPLACE')`, [bid3]);
+ok((await ind(2027, 1)) === 1, '0008: שחזור "החלף הכול" מחזיר את שלושת המונים');
+await q(`select restore_backup(null, $1::jsonb, 'merge', false, null) j`, [JSON.stringify({ overtime_hours: [{ year: 2025, month: 7, frontal_hours: 2, pedagogical_hours: 3 }] })]);
+ok((await ind(2025, 7)) === null, '0008: גיבוי ישן (בלי individual_hours) משוחזר כשורה ישנה');
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
 process.exit(fails ? 1 : 0);

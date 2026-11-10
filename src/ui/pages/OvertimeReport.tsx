@@ -3,11 +3,11 @@ import { Mail } from 'lucide-react';
 import { useStore } from '../../data/store';
 import { Modal } from '../Modal';
 import { errText, gcal, type GStatus } from '../../lib/google';
-import { canSendReport, monthKey, monthLabel, sendableFrom } from '../../lib/overtime';
+import { OT_LABELS, canSendReport, monthKey, monthLabel, nothingToReport, sendableFrom, type OtCounters } from '../../lib/overtime';
 import { buildReport, REPORT_TO, type ReportSent } from '../../lib/overtimeMail';
 
 /** חלון אישור שליחה: נמען, נושא וגוף קבועים (קריאה בלבד). השרת קובע אותם שוב ושולף את השעות בעצמו. */
-export function OvertimeReportModal({ ym, hours, onClose }: { ym: { year: number; month: number }; hours: number; onClose: () => void }) {
+export function OvertimeReportModal({ ym, counters, onClose }: { ym: { year: number; month: number }; counters: OtCounters; onClose: () => void }) {
   const store = useStore();
   const cur = store.db.user_settings[0];
   const prefs = (cur?.prefs ?? {}) as { overtimeReports?: Record<string, ReportSent> };
@@ -17,14 +17,15 @@ export function OvertimeReportModal({ ym, hours, onClose }: { ym: { year: number
   const [done, setDone] = useState(false);
   const key = monthKey(ym);
   const sent = prefs.overtimeReports?.[key];
-  const { subject, body } = buildReport(ym, hours);
+  const { subject, body } = buildReport(ym, counters);
   const cloud = store.kind === 'supabase';
 
   useEffect(() => { if (!cloud) { setSt('na'); return; } void gcal<GStatus>('status').then((s) => setSt(s)); }, [cloud]);
   const status = st === null || st === 'na' ? null : st;
   const ready = status && !status.error && status.connected && status.canSend === true;
   const timeOk = canSendReport(ym);
-  const valid = timeOk && hours > 0;
+  const empty = nothingToReport(counters);
+  const valid = timeOk && !empty;
 
   const grant = async () => {
     setBusy(true); setErr('');
@@ -34,7 +35,7 @@ export function OvertimeReportModal({ ym, hours, onClose }: { ym: { year: number
   };
   const send = async () => {
     setBusy(true); setErr('');
-    const r = await gcal<{ ok?: boolean }>('send_report', { year: ym.year, month: ym.month, hours });
+    const r = await gcal<{ ok?: boolean }>('send_report', { year: ym.year, month: ym.month, counters });
     if (r.error || !r.ok) { setErr(errText(r.error ?? 'השליחה נכשלה')); setBusy(false); return; }
     store.saveFast('user_settings', [{ id: true, theme: cur?.theme ?? 'sky-blue', prefs: { ...(cur?.prefs ?? {}), overtimeReports: { ...(prefs.overtimeReports ?? {}), [key]: { at: new Date().toISOString(), to: REPORT_TO } } } }]);
     setBusy(false); setDone(true);
@@ -42,7 +43,7 @@ export function OvertimeReportModal({ ym, hours, onClose }: { ym: { year: number
 
   if (done) return (
     <Modal title="הדיווח נשלח" onClose={onClose}>
-      <p role="status">הדיווח לחודש {monthLabel(ym)} ({hours} שעות) נשלח אל <bdi dir="ltr">{REPORT_TO}</bdi>. עותק נשמר בתיקיית "נשלחו" ב-Gmail שלך.</p>
+      <p role="status">הדיווח לחודש {monthLabel(ym)} נשלח אל <bdi dir="ltr">{REPORT_TO}</bdi>. עותק נשמר בתיקיית "נשלחו" ב-Gmail שלך.</p>
       <button className="btn primary" onClick={onClose}>סגור</button>
     </Modal>);
 
@@ -51,7 +52,7 @@ export function OvertimeReportModal({ ym, hours, onClose }: { ym: { year: number
       <div className="form">
         {sent && <p className="note-banner" role="status">דיווח לחודש הזה כבר נשלח ב-{new Date(sent.at).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' })} אל <bdi dir="ltr">{sent.to}</bdi>. שליחה נוספת תישלח שוב.</p>}
         {!timeOk && <p className="issue" role="status">אפשר לשלוח את הדיווח של {monthLabel(ym)} החל מ-{sendableFrom(ym)}.</p>}
-        {timeOk && hours === 0 && <p className="issue" role="status">לא הוזנו שעות לחודש הזה, ולכן אין מה לדווח.</p>}
+        {timeOk && empty && <p className="issue" role="status">אין חריגות לדיווח החודש הזה ({OT_LABELS.frontal} 0, {OT_LABELS.individual} 0, {OT_LABELS.stay} {counters.stay}).</p>}
         <dl className="ot-preview">
           <dt>מאת</dt><dd>חשבון ה-Gmail שלך</dd>
           <dt>אל</dt><dd><bdi dir="ltr" data-testid="ot-to">{REPORT_TO}</bdi></dd>

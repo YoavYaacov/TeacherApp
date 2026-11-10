@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OT_FIRST, beforeFirst, bump, canSendReport, hoursOf, sendableFrom, monthKey, monthLabel, shiftMonth } from './overtime';
+import { OT_FIRST, beforeFirst, bump, canSendReport, countersOf, nothingToReport, toRow, sendableFrom, monthKey, monthLabel, shiftMonth } from './overtime';
 import { buildReport, REPORT_TO } from './overtimeMail';
 
 describe('שעות נוספות', () => {
@@ -8,22 +8,27 @@ describe('שעות נוספות', () => {
     expect(shiftMonth({ year: 2027, month: 1 }, -1)).toEqual({ year: 2026, month: 12 });
     expect(shiftMonth({ year: 2026, month: 10 }, -10)).toEqual({ year: 2025, month: 12 });
   });
-  it('חודש ללא רשומה מתחיל באפס, ושורה עם hours נקראת ישירות', () => {
-    const rows = [{ year: 2026, month: 9, hours: 5 }];
-    expect(hoursOf(rows, { year: 2026, month: 10 })).toBe(0);
-    expect(hoursOf(rows, { year: 2026, month: 9 })).toBe(5);
-    expect(hoursOf([{ year: 2026, month: 9, hours: 0, frontal_hours: 4, pedagogical_hours: 1 }], { year: 2026, month: 9 })).toBe(0); // hours מפורש גובר
+  it('חודש בלי שורה: פרונטליות 0, פרטני 0, שהייה מתחילה מ-6', () => {
+    expect(countersOf([], { year: 2026, month: 11 })).toEqual({ c: { frontal: 0, individual: 0, stay: 6 }, legacy: 0 });
   });
-  it('שורה ישנה (משחזור גיבוי ישן) ללא hours: סכום שתי הכמויות', () => {
-    expect(hoursOf([{ year: 2026, month: 9, frontal_hours: 3, pedagogical_hours: 2 } as never], { year: 2026, month: 9 })).toBe(5);
+  it('שורה במודל החדש נקראת כמות שהיא; שהייה לא יורדת מ-6', () => {
+    const rows = [{ year: 2026, month: 11, frontal_hours: 3, individual_hours: 2, pedagogical_hours: 8 }, { year: 2026, month: 12, frontal_hours: 0, individual_hours: 0, pedagogical_hours: 2 }];
+    expect(countersOf(rows, { year: 2026, month: 11 }).c).toEqual({ frontal: 3, individual: 2, stay: 8 });
+    expect(countersOf(rows, { year: 2026, month: 12 }).c.stay).toBe(6);
   });
+  it('שורה ישנה (בלי individual_hours): ברירת מחדל, והסכום הישן רק כהערה', () => {
+    expect(countersOf([{ year: 2026, month: 10, hours: 19, frontal_hours: 3, pedagogical_hours: 1 }], { year: 2026, month: 10 })).toEqual({ c: { frontal: 0, individual: 0, stay: 6 }, legacy: 19 });
+    expect(countersOf([{ year: 2026, month: 10, frontal_hours: 3, pedagogical_hours: 2 }], { year: 2026, month: 10 }).legacy).toBe(5);
+  });
+  it('שמירה: שלוש עמודות, בלי hours', () => { expect(toRow({ year: 2026, month: 11 }, { frontal: 4, individual: 1, stay: 7 })).toEqual({ year: 2026, month: 11, frontal_hours: 4, individual_hours: 1, pedagogical_hours: 7 }); });
+  it('אין מה לדווח כשהכול בברירת המחדל', () => { expect(nothingToReport({ frontal: 0, individual: 0, stay: 6 })).toBe(true); expect(nothingToReport({ frontal: 0, individual: 0, stay: 7 })).toBe(false); expect(nothingToReport({ frontal: 1, individual: 0, stay: 6 })).toBe(false); });
   it('מפתח חודש', () => { expect(monthKey({ year: 2026, month: 3 })).toBe('2026-03'); });
-  it('אין ערך שלילי', () => { expect(bump(0, -1)).toBe(0); expect(bump(2, -1)).toBe(1); expect(bump(2, 1)).toBe(3); });
+  it('אין ערך שלילי, ושהייה לא יורדת מתחת למינימום', () => { expect(bump(0, -1)).toBe(0); expect(bump(2, -1)).toBe(1); expect(bump(2, 1)).toBe(3); expect(bump(6, -1, 6)).toBe(6); expect(bump(6, 1, 6)).toBe(7); });
   it('שם החודש בעברית עם שנה לועזית', () => { expect(monthLabel({ year: 2026, month: 10 })).toBe('אוקטובר 2026'); });
   it('נוסח המייל קבוע, הנמען קבוע', () => {
-    const r = buildReport({ year: 2026, month: 10 }, 12);
+    const r = buildReport({ year: 2026, month: 10 }, { frontal: 4, individual: 0, stay: 7 });
     expect(r.subject).toBe('דיווח שעות נוספות – אוקטובר 2026');
-    expect(r.body).toBe('שלום,\n\nלהלן דיווח השעות הנוספות שלי לחודש אוקטובר 2026:\n\nסה״כ שעות נוספות: 12\n\nבברכה,\nיואב יעקב');
+    expect(r.body).toBe('שלום,\n\nלהלן דיווח השעות הנוספות שלי לחודש אוקטובר 2026:\n\nפרונטליות: 4\nפרטני: 0\nשהייה: 7\n\nבברכה,\nיואב יעקב');
     expect(REPORT_TO).toBe('israelp@amit.org.il');
   });
   it('החודש הראשון הוא אוקטובר 2026 ואין גלילה לפניו', () => {

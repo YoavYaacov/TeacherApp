@@ -11,7 +11,7 @@ const APP_URL = env('APP_URL').replace(/\/+$/, '');
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly'];
 const MAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 // דיווח שעות נוספות: נמען וחתימה קבועים (מוגדרים גם בלקוח, src/lib/overtimeMail.ts, לתצוגה בלבד). החודש הראשון: אוקטובר 2026.
-const OT_TO = 'israelp@amit.org.il', OT_NAME = 'יואב יעקב', OT_FIRST = 2026 * 12 + 10;
+const OT_TO = 'israelp@amit.org.il', OT_NAME = 'יואב יעקב', OT_FIRST = 2026 * 12 + 10, OT_STAY_BASE = 6;
 const admin = createClient(SB_URL, env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, GET, OPTIONS' };
@@ -266,23 +266,27 @@ Deno.serve(async (req) => {
       }
       case 'send_report': {
         // דיווח שעות נוספות: השרת קובע בעצמו נמען, נושא, גוף וחתימה, ולוקח את השעות מ-Supabase.
-        // מהלקוח מתקבלים רק year, month ו-hours (לאימות שמה שהמשתמש אישר הוא מה שנשמר). to/subject/body מהבקשה מתעלמים מהם.
+        // מהלקוח מתקבלים רק year, month ו-counters (לאימות שמה שהמשתמש אישר הוא מה שנשמר). to/subject/body מהבקשה מתעלמים מהם.
         const year = Number(body.year), month = Number(body.month);
         if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12 || year < 2000 || year > 2200) return json({ error: 'bad_input' }, 400);
         if (year * 12 + month < OT_FIRST) return json({ error: 'bad_month' });
         const ip = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: 'numeric' }).formatToParts(new Date()).filter((x) => x.type !== 'literal').map((x) => [x.type, Number(x.value)]));
         if (ip.year * 12 + ip.month < year * 12 + month + 1) return json({ error: 'too_early' });
-        const { data: row, error: rowErr } = await admin.from('overtime_hours').select('hours').eq('year', year).eq('month', month).maybeSingle();
+        const { data: row, error: rowErr } = await admin.from('overtime_hours').select('frontal_hours,individual_hours,pedagogical_hours').eq('year', year).eq('month', month).maybeSingle();
         if (rowErr) throw new Error(rowErr.message);
-        const hours = Number(row?.hours ?? 0);
-        if (!Number.isInteger(hours) || hours <= 0) return json({ error: 'no_hours' });
-        if (body.hours !== undefined && Number(body.hours) !== hours) return json({ error: 'hours_changed' });
+        // שלושה מונים. חודש בלי שורה, או שורה ישנה בלי individual_hours: ברירת המחדל (0, 0, שהייה 6), בדיוק כמו בלקוח.
+        const fresh = row && typeof row.individual_hours === 'number';
+        const c = { frontal: fresh ? Number(row.frontal_hours) : 0, individual: fresh ? Number(row.individual_hours) : 0, stay: fresh ? Math.max(OT_STAY_BASE, Number(row.pedagogical_hours)) : OT_STAY_BASE };
+        if (![c.frontal, c.individual, c.stay].every((n) => Number.isInteger(n) && n >= 0)) throw new Error('bad overtime row');
+        if (c.frontal === 0 && c.individual === 0 && c.stay === OT_STAY_BASE) return json({ error: 'no_hours' }); // אין חריגות לדווח
+        const sent = (body.counters ?? {}) as Record<string, unknown>;
+        if (body.counters !== undefined && (Number(sent.frontal) !== c.frontal || Number(sent.individual) !== c.individual || Number(sent.stay) !== c.stay)) return json({ error: 'hours_changed' });
         const { data: cred } = await admin.from('google_credentials').select('scope').eq('id', true).maybeSingle();
         if (!cred) return json({ error: 'reauth_required' });
         if (!(cred.scope ?? '').includes('gmail.send')) return json({ error: 'no_send_scope' });
         const label = new Intl.DateTimeFormat('he-IL', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(new Date(Date.UTC(year, month - 1, 1)));
         const subject = `דיווח שעות נוספות – ${label}`;
-        const text = `שלום,\n\nלהלן דיווח השעות הנוספות שלי לחודש ${label}:\n\nסה״כ שעות נוספות: ${hours}\n\nבברכה,\n${OT_NAME}`;
+        const text = `שלום,\n\nלהלן דיווח השעות הנוספות שלי לחודש ${label}:\n\nפרונטליות: ${c.frontal}\nפרטני: ${c.individual}\nשהייה: ${c.stay}\n\nבברכה,\n${OT_NAME}`;
         const token = await accessToken();
         const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
           method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: buildRawEmail(OT_TO, subject, text) }),
