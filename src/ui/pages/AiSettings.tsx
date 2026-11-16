@@ -18,7 +18,7 @@ export function AiSettings() {
         : 'error' in st ? <p className="issue" role="alert">{st.message}</p>
         : <><p>{st.configured ? <span className="badge ok">מוגדר</span> : <span className="badge danger">חסר מפתח</span>} מודל: <span dir="ltr">{st.model}</span> · שימוש היום: {st.used} מתוך {st.limit} בקשות · מתאפס {resetLabel()} (שעון ישראל)</p>
           <p className="muted small">{LIMIT_NOTE(st.limit)}</p>
-          {!st.configured && <p className="issue" role="alert">חסר הסוד GEMINI_API_KEY ב-Supabase. ראה docs/SETUP.md סעיף ה׳.</p>}
+          {!st.configured && <p className="issue" role="alert">חסר הסוד TA_GEMINI_API_KEY ב-Supabase. ראה docs/SETUP.md סעיף ה׳.</p>}
           {st.blockedUntil && <p className="note-banner">המכסה החינמית נגמרה. שאלות שדורשות AI חסומות עד {new Date(st.blockedUntil).toLocaleString('he-IL')}. שאלות עובדתיות עדיין עובדות.</p>}</>}
       <p className="muted small">העוזר משתמש רק במכסה החינמית של Gemini. אין אמצעי תשלום, ואם המכסה נגמרת הוא פשוט נעצר עד שתתחדש.</p></div>
     <div className="bk-sec"><h3>פרטיות</h3>

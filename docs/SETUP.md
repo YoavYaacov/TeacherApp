@@ -1,3 +1,8 @@
+> **חשוב: TeacherApp רצה בפרויקט Supabase משותף (edtech), בסכמה `teacherapp` בלבד.**
+> - אסור להריץ את `supabase/migrations/*` על הפרויקט המשותף (הן כותבות ל-`public` ויפגעו ב"הבנתי"). הן נשמרות כהיסטוריה.
+> - הלקוח (`src/lib/supabase.ts`) וכל לקוחות ה-Edge Functions מוגדרים עם `db: { schema: 'teacherapp' }`; הסכמה חייבת להיות ברשימת Exposed schemas.
+> - סודות ה-Edge Functions בקידומת `TA_`. אין ספק Google בכניסה: כניסה בסיסמה או בקישור למייל, ללא יצירת משתמשים (`shouldCreateUser: false`).
+
 # הקמה והפעלה
 
 ## א. שימוש מיידי (מצב מקומי, בלי הקמה)
@@ -47,7 +52,7 @@ npm install && npm run build
 2. OAuth client הקיים: להוסיף Authorized redirect URI: `https://<PROJECT_REF>.supabase.co/functions/v1/google-calendar`.
 3. OAuth consent screen > Data access: להוסיף scopes `calendar.events.readonly` ו-`calendar.calendarlist.readonly`; Publishing status: In production. אם נשארים ב-Testing, ההרשאה פגה כל 7 ימים והאפליקציה תציג ״חבר מחדש״ (לחיצה אחת). Test users חייב לכלול את המייל שלך.
 4. Supabase > SQL Editor: להריץ `supabase/migrations/0003_google_calendar.sql`.
-5. Supabase > Edge Functions > Secrets: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `APP_URL` (כתובת האתר ב-Vercel).
+5. Supabase > Edge Functions > Secrets: `TA_GOOGLE_CLIENT_ID`, `TA_GOOGLE_CLIENT_SECRET`, `TA_APP_URL` (כתובת האתר ב-Vercel).
 6. Supabase > Edge Functions > Deploy a new function > Via Editor, שם `google-calendar`, להדביק את `supabase/functions/google-calendar/index.ts`, ולהשבית Verify JWT (הקוד מאמת בעלים בעצמו).
 7. באפליקציה: הגדרות > יומן וסנכרון > חבר, ובחירת יומן. אחרי הייבוא הראשון, אם יש שיעורים פנימיים שקיימים גם ב-Google, יוצע איחוד (התיעוד עובר ל-Google, הכפילות נמחקת).
 8. בהתקנה מחדש של הפונקציה: להדביק שוב את `supabase/functions/google-calendar/index.ts` ב-Editor ול-Deploy (Verify JWT כבוי).
@@ -71,7 +76,7 @@ npm run contrast   # ניגודיות ערכות הנושא
 סדר ההתקנה חשוב: קודם SQL, אחר כך הפונקציה, ובסוף העלאת הקבצים ל-GitHub (האפליקציה עובדת גם לפני ה-SQL, אבל העוזר יופיע כלא מוכן).
 1. **מפתח חינמי**: https://aistudio.google.com ← Get API key ← Create API key (בפרויקט חדש). לא מוסיפים כרטיס אשראי ולא מפעילים Billing. את המפתח לא שולחים לאף אחד, גם לא לי.
 2. **SQL**: Supabase ← SQL Editor ← New query ← הדבק את `supabase/migrations/0005_ai_assistant.sql` ← Run (Success). הפעולה רק מוסיפה טבלאות ועמודה, לא משנה נתונים קיימים.
-3. **סודות**: Supabase ← Edge Functions ← Secrets ← Add: `GEMINI_API_KEY` = המפתח. אופציונלי: `AI_MODEL` (ברירת מחדל gemini-3.5-flash-lite), `AI_DAILY_LIMIT` (ברירת מחדל 150 בקשות ליום).
+3. **סודות**: Supabase ← Edge Functions ← Secrets ← Add: `TA_GEMINI_API_KEY` = המפתח. אופציונלי: `TA_AI_MODEL` (ברירת מחדל gemini-3.5-flash-lite), `TA_AI_DAILY_LIMIT` (ברירת מחדל 150 בקשות ליום).
 4. **פונקציה**: Edge Functions ← Deploy a new function ← Via Editor ← שם `ai-assistant` ← הדבק את `ai-assistant-function.ts` ← Deploy. **Verify JWT נשאר דולק** (שונה מ-google-calendar).
 5. **אפליקציה**: העלה ל-GitHub את קבצי השינויים; Vercel יבנה לבד.
 6. בדיקה: הגדרות ← העוזר האישי: אמור להופיע ״מוגדר״, המודל והשימוש היום.
@@ -82,7 +87,7 @@ npm run contrast   # ניגודיות ערכות הנושא
 ## ז. ייצוא תשובות, המשך תשובה ומונה שימוש
 - **העתקה ל-Word**: בכל תשובה של העוזר יש "העתק" (מעתיק טקסט עם נוסחאות מעוצבות; בלי LaTeX בטקסט הפשוט), **Word** (מוריד קובץ DOCX עם משוואות Word אמיתיות הניתנות לעריכה, וכל העברית מימין לשמאל) ו-**HTML** (דף עצמאי להדפסה). ההדבקה ישירות ל-Word תלויה בגרסת Word, ולכן לנוסחאות שניתנות לעריכה מומלץ קובץ ה-Word.
 - **תשובה שנקטעה**: כשהמודל נעצר בגלל מגבלת אורך מופיעה הודעה וכפתור "המשך תשובה" שממשיך מאותה נקודה, באותה הודעה. מגבלת הפלט נקבעת לפי סוג הבקשה (שיחה קצרה 1,536, רגילה 2,560, פתרון מתמטי 4,096 ומעלה, המשך 4,096) ואינה דורשת שינוי בשרת או פריסה מחדש של הפונקציה.
-- **המונה היומי** הוא מגבלה פנימית של TeacherApp (`AI_DAILY_LIMIT`, ברירת מחדל 150), לא המכסה של Google. הוא מתאפס בחצות שעון ארה״ב המערבית, 10:00 בבוקר שעון ישראל (09:00 בשבועות שבהם מעבר השעון בארה״ב וישראל אינו מסונכרן).
+- **המונה היומי** הוא מגבלה פנימית של TeacherApp (`TA_AI_DAILY_LIMIT`, ברירת מחדל 150), לא המכסה של Google. הוא מתאפס בחצות שעון ארה״ב המערבית, 10:00 בבוקר שעון ישראל (09:00 בשבועות שבהם מעבר השעון בארה״ב וישראל אינו מסונכרן).
 
 ## ח. שעות נוספות (מיגרציה 0006)
 1. **SQL**: Supabase ← SQL Editor ← New query ← הדבק את `supabase/migrations/0006_overtime_hours.sql` ← Run (Success). הפעולה מוסיפה טבלה אחת (`overtime_hours`) ומעדכנת את רשימת הטבלאות של הגיבוי; לא משנה נתונים קיימים. מריצים פעם אחת בלבד.

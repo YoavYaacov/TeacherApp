@@ -1,5 +1,6 @@
 // Edge Function: ai-assistant — שער מאובטח אל Gemini עבור "העוזר האישי".
-// Secrets: GEMINI_API_KEY (חובה). אופציונליים: AI_MODEL (ברירת מחדל gemini-3.5-flash-lite), AI_DAILY_LIMIT (ברירת מחדל 150).
+// Secrets (בקידומת TA_ כי הפרויקט משותף עם "הבנתי"): TA_GEMINI_API_KEY (חובה). אופציונליים: TA_AI_MODEL (ברירת מחדל gemini-3.5-flash-lite), TA_AI_DAILY_LIMIT (ברירת מחדל 150).
+// כל לקוחות Supabase כאן פונים לסכמה teacherapp בלבד.
 // (SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY מסופקים אוטומטית.) Verify JWT: להשאיר מופעל.
 // עקרונות: המפתח נשאר כאן בלבד · רק הבעלים · מכסה יומית נאכפת בשרת · מניעת בקשות כפולות ·
 // הגנת פרטיות: שמות תלמידים ופרטי זיהוי נמחקים מהטקסט לפני השליחה ל-Gemini, גם אם הלקוח טעה.
@@ -7,18 +8,18 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 const SB_URL = env('SUPABASE_URL');
-const admin = createClient(SB_URL, env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+const admin = createClient(SB_URL, env('SUPABASE_SERVICE_ROLE_KEY'), { db: { schema: 'teacherapp' }, auth: { persistSession: false } });
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
-const MODEL = () => env('AI_MODEL') || 'gemini-3.5-flash-lite';
-const DAILY_LIMIT = () => Math.max(1, Number(env('AI_DAILY_LIMIT')) || 150);
+const MODEL = () => env('TA_AI_MODEL') || 'gemini-3.5-flash-lite';
+const DAILY_LIMIT = () => Math.max(1, Number(env('TA_AI_DAILY_LIMIT')) || 150);
 const MAX_INPUT_CHARS = 60000;
 
 async function requireOwner(req: Request): Promise<boolean> {
   const auth = req.headers.get('Authorization');
   if (!auth) return false;
-  const user = createClient(SB_URL, env('SUPABASE_ANON_KEY'), { global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
+  const user = createClient(SB_URL, env('SUPABASE_ANON_KEY'), { db: { schema: 'teacherapp' }, global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
   const { data, error } = await user.rpc('is_owner');
   return !error && data === true;
 }
@@ -77,9 +78,9 @@ export function classify(status: number, body: any): Fail {
       ? { ok: false, error: 'quota_exhausted', message: 'המכסה החינמית היומית של Gemini נגמרה. העוזר יחזור לפעול כשהמכסה תתחדש.' }
       : { ok: false, error: 'rate_limited', message: 'יותר מדי בקשות בזמן קצר. נסה שוב בעוד רגע.', retryAfterSec: retry ?? 30 };
   }
-  if (status === 400 && /API key not valid|API_KEY_INVALID/i.test(msg + details)) return { ok: false, error: 'bad_key', message: 'מפתח ה-API של Gemini לא תקין. בדוק את הסוד GEMINI_API_KEY ב-Supabase.' };
+  if (status === 400 && /API key not valid|API_KEY_INVALID/i.test(msg + details)) return { ok: false, error: 'bad_key', message: 'מפתח ה-API של Gemini לא תקין. בדוק את הסוד TA_GEMINI_API_KEY ב-Supabase.' };
   if (status === 401 || status === 403) return { ok: false, error: 'key_forbidden', message: 'למפתח ה-API אין הרשאה לשימוש ב-Gemini (או שהשירות אינו זמין באזור).' };
-  if (status === 404) return { ok: false, error: 'model_not_found', message: `המודל ${MODEL()} לא נמצא. אפשר להגדיר מודל אחר בסוד AI_MODEL.` };
+  if (status === 404) return { ok: false, error: 'model_not_found', message: `המודל ${MODEL()} לא נמצא. אפשר להגדיר מודל אחר בסוד TA_AI_MODEL.` };
   if (status >= 500) return { ok: false, error: 'overloaded', message: 'השירות של Gemini עמוס כרגע. נסה שוב בעוד רגע.' };
   return { ok: false, error: 'upstream', message: `שגיאה מ-Gemini (${status}).` };
 }
@@ -97,7 +98,7 @@ async function callGemini(payload: Record<string, unknown>) {
   let last: Fail | null = null;
   for (let i = 0; i < 2; i++) {
     let r: Response;
-    try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env('GEMINI_API_KEY') }, body: JSON.stringify(payload) }); }
+    try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env('TA_GEMINI_API_KEY') }, body: JSON.stringify(payload) }); }
     catch { return { ok: false, error: 'network', message: 'אין תקשורת עם Gemini כרגע. נסה שוב.' } as Fail; }
     const j = await r.json().catch(() => ({}));
     if (r.ok) return { ok: true as const, data: j };
@@ -118,10 +119,10 @@ export async function handle(req: Request): Promise<Response> {
 
   if (body.action === 'status') {
     const { data: u } = await admin.from('ai_usage').select('requests,blocked_until').eq('day', day).maybeSingle();
-    return json({ configured: !!env('GEMINI_API_KEY'), model: MODEL(), used: u?.requests ?? 0, limit: DAILY_LIMIT(), blockedUntil: u?.blocked_until && new Date(u.blocked_until) > new Date() ? u.blocked_until : null });
+    return json({ configured: !!env('TA_GEMINI_API_KEY'), model: MODEL(), used: u?.requests ?? 0, limit: DAILY_LIMIT(), blockedUntil: u?.blocked_until && new Date(u.blocked_until) > new Date() ? u.blocked_until : null });
   }
   if (body.action !== 'generate') return json({ error: 'unknown_action' }, 400);
-  if (!env('GEMINI_API_KEY')) return json({ ok: false, error: 'not_configured', message: 'העוזר עדיין לא הוגדר: חסר הסוד GEMINI_API_KEY ב-Supabase.' });
+  if (!env('TA_GEMINI_API_KEY')) return json({ ok: false, error: 'not_configured', message: 'העוזר עדיין לא הוגדר: חסר הסוד TA_GEMINI_API_KEY ב-Supabase.' });
 
   // ── ולידציית קלט ──
   const requestId = String(body.request_id ?? '');

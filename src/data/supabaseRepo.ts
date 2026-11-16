@@ -1,11 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { TaClient } from '../lib/supabase';
 import { CONFLICT, emptyDB, TABLES, type DB, type TableName } from './types';
 import type { Repo } from './repo';
 
 const PAGE = 1000;
 export class SupabaseRepo implements Repo {
   readonly kind = 'supabase' as const;
-  constructor(private sb: SupabaseClient) {}
+  constructor(private sb: TaClient) {}
   async load(): Promise<DB> {
     const db = emptyDB() as unknown as Record<string, unknown[]>;
     await Promise.all(TABLES.map(async (t) => {
