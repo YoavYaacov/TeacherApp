@@ -1,5 +1,6 @@
 // Edge Function: google-calendar — חיבור OAuth, בחירת יומן וייבוא אירועים (שלב 3א), ושליחת דיווח שעות נוספות במייל (send_report).
-// Secrets נדרשים: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APP_URL.
+// Secrets נדרשים (בפרויקט משותף עם "הבנתי", לכן בקידומת TA_): TA_GOOGLE_CLIENT_ID, TA_GOOGLE_CLIENT_SECRET, TA_APP_URL.
+// כל לקוחות Supabase כאן פונים לסכמה teacherapp בלבד.
 // (SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY מסופקים אוטומטית.)
 // חשוב: להשבית "Verify JWT" לפונקציה זו (ה-callback של Google מגיע בלי JWT). כל פעולה אחרת מאמתת בעלים בעצמה.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -7,12 +8,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const env = (k: string) => Deno.env.get(k) ?? '';
 const SB_URL = env('SUPABASE_URL');
 const FN_URL = `${SB_URL}/functions/v1/google-calendar`;
-const APP_URL = env('APP_URL').replace(/\/+$/, '');
+const APP_URL = env('TA_APP_URL').replace(/\/+$/, '');
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly'];
 const MAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 // דיווח שעות נוספות: נמען וחתימה קבועים (מוגדרים גם בלקוח, src/lib/overtimeMail.ts, לתצוגה בלבד). החודש הראשון: אוקטובר 2026.
 const OT_TO = 'israelp@amit.org.il', OT_NAME = 'יואב יעקב', OT_FIRST = 2026 * 12 + 10, OT_STAY_BASE = 6;
-const admin = createClient(SB_URL, env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+const admin = createClient(SB_URL, env('SUPABASE_SERVICE_ROLE_KEY'), { db: { schema: 'teacherapp' }, auth: { persistSession: false } });
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, GET, OPTIONS' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
@@ -22,7 +23,7 @@ class ReauthError extends Error {}
 async function requireOwner(req: Request): Promise<boolean> {
   const auth = req.headers.get('Authorization');
   if (!auth) return false;
-  const user = createClient(SB_URL, env('SUPABASE_ANON_KEY'), { global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
+  const user = createClient(SB_URL, env('SUPABASE_ANON_KEY'), { db: { schema: 'teacherapp' }, global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
   const { data, error } = await user.rpc('is_owner');
   return !error && data === true;
 }
@@ -32,7 +33,7 @@ async function accessToken(): Promise<string> {
   if (!data) throw new ReauthError('not_connected');
   const r = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: env('GOOGLE_CLIENT_ID'), client_secret: env('GOOGLE_CLIENT_SECRET'), refresh_token: data.refresh_token, grant_type: 'refresh_token' }),
+    body: new URLSearchParams({ client_id: env('TA_GOOGLE_CLIENT_ID'), client_secret: env('TA_GOOGLE_CLIENT_SECRET'), refresh_token: data.refresh_token, grant_type: 'refresh_token' }),
   });
   const j = await r.json();
   if (!r.ok) {
@@ -219,7 +220,7 @@ Deno.serve(async (req) => {
     if (url.searchParams.get('error')) return back('denied');
     const r = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ code: url.searchParams.get('code')!, client_id: env('GOOGLE_CLIENT_ID'), client_secret: env('GOOGLE_CLIENT_SECRET'), redirect_uri: FN_URL, grant_type: 'authorization_code' }),
+      body: new URLSearchParams({ code: url.searchParams.get('code')!, client_id: env('TA_GOOGLE_CLIENT_ID'), client_secret: env('TA_GOOGLE_CLIENT_SECRET'), redirect_uri: FN_URL, grant_type: 'authorization_code' }),
     });
     const j = await r.json();
     if (!r.ok || !j.refresh_token) return back('no_refresh_token');
@@ -239,7 +240,7 @@ Deno.serve(async (req) => {
         await admin.from('oauth_states').delete().lt('expires_at', new Date().toISOString());
         await admin.from('oauth_states').insert({ state });
         const u = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-        Object.entries({ client_id: env('GOOGLE_CLIENT_ID'), redirect_uri: FN_URL, response_type: 'code', scope: (body.mail === true ? [...SCOPES, MAIL_SCOPE] : SCOPES).join(' '), access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state }).forEach(([k, v]) => u.searchParams.set(k, v));
+        Object.entries({ client_id: env('TA_GOOGLE_CLIENT_ID'), redirect_uri: FN_URL, response_type: 'code', scope: (body.mail === true ? [...SCOPES, MAIL_SCOPE] : SCOPES).join(' '), access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state }).forEach(([k, v]) => u.searchParams.set(k, v));
         return json({ url: u.toString() });
       }
       case 'status': {

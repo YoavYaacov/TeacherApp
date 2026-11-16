@@ -21,4 +21,4 @@ export function resetLabel(now = new Date()): string {
   const when = ilDay(r) === ilDay(now) ? 'היום' : 'מחר';
   return `${when} ב-${il(r, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}`;
 }
-export const LIMIT_NOTE = (limit: number) => `${limit} היא מגבלה פנימית של TeacherApp (אפשר לשנות בסוד AI_DAILY_LIMIT), לא המכסה של Google. המכסה החינמית של Google נפרדת ועשויה להיגמר קודם, ואז העוזר נחסם עד שהיא מתחדשת.`;
+export const LIMIT_NOTE = (limit: number) => `${limit} היא מגבלה פנימית של TeacherApp (אפשר לשנות בסוד TA_AI_DAILY_LIMIT), לא המכסה של Google. המכסה החינמית של Google נפרדת ועשויה להיגמר קודם, ואז העוזר נחסם עד שהיא מתחדשת.`;

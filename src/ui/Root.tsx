@@ -55,19 +55,36 @@ function AuthGate() {
 function Login() {
   const sb = supabase!;
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
   const redirectTo = window.location.origin + window.location.pathname;
+  // הפרויקט משותף ל"הבנתי": הרשמה חופשית כבויה, Google כבוי. הכניסה כאן לא יוצרת משתמשים לעולם (shouldCreateUser: false),
+  // ומשתמש שאינו הבעלים נחסם אחרי הכניסה על ידי is_owner() ו-RLS.
+  const signInPassword = async () => {
+    setBusy(true); setMsg('');
+    const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password });
+    setBusy(false);
+    if (error) setMsg('הכניסה נכשלה. בדוק את המייל והסיסמה.');
+  };
+  const sendLink = async () => {
+    setBusy(true); setMsg('');
+    const { error } = await sb.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: redirectTo, shouldCreateUser: false } });
+    setBusy(false);
+    setMsg(error ? 'לא ניתן לשלוח קישור כניסה. בדוק שהמייל נכון.' : 'אם החשבון קיים, נשלח אליו קישור כניסה. פתח אותו באותו דפדפן.');
+  };
   return (
     <div className="center-screen"><div className="card login">
       <h1>ניהול הוראה</h1>
       <p className="muted">כניסה למורה בלבד.</p>
-      <button className="btn primary" style={{ width: '100%', justifyContent: 'center' }}
-        onClick={() => sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })}>המשך עם Google</button>
+      <label className="field">מייל
+        <input className="input" type="email" dir="ltr" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" /></label>
+      <label className="field" style={{ marginTop: 8 }}>סיסמה
+        <input className="input" type="password" dir="ltr" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && email && password && !busy) void signInPassword(); }} /></label>
+      <button className="btn primary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} disabled={!email || !password || busy} onClick={() => void signInPassword()}>כניסה</button>
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '16px 0' }} />
-      <label className="field">או קישור כניסה למייל
-        <input className="input" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" /></label>
-      <button className="btn" style={{ marginTop: 8 }} disabled={!email}
-        onClick={async () => { const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } }); setMsg(error ? `שגיאה: ${error.message}` : 'נשלח קישור כניסה למייל. פתח אותו באותו דפדפן.'); }}>שלח קישור</button>
+      <button className="btn" disabled={!email || busy} onClick={() => void sendLink()}>או שלח קישור כניסה למייל</button>
       {msg && <p role="status">{msg}</p>}
       <p className="muted" style={{ marginTop: 16, marginBottom: 0 }}><a href="/privacy">מדיניות פרטיות</a></p>
     </div></div>

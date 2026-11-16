@@ -1,7 +1,7 @@
 import { build } from 'esbuild';
 import { tables } from './fake-sb.mjs';
 await build({ entryPoints: [new URL('../../supabase/functions/google-calendar/index.ts', import.meta.url).pathname], bundle: true, format: 'esm', outfile: new URL('./.fn.mjs', import.meta.url).pathname, alias: { 'npm:@supabase/supabase-js@2': new URL('./fake-sb.mjs', import.meta.url).pathname }, logLevel: 'error' });
-let handler; const envs = { SUPABASE_URL: 'https://x.supabase.co', GOOGLE_CLIENT_ID: 'cid', GOOGLE_CLIENT_SECRET: 's', APP_URL: 'https://app.test' };
+let handler; const envs = { SUPABASE_URL: 'https://x.supabase.co', TA_GOOGLE_CLIENT_ID: 'cid', TA_GOOGLE_CLIENT_SECRET: 's', TA_APP_URL: 'https://app.test' };
 globalThis.Deno = { env: { get: (k) => envs[k] }, serve: (h) => { handler = h; } };
 const gmail = []; let events = []; let calls = []; let gone = false;
 globalThis.fetch = async (url, init) => {

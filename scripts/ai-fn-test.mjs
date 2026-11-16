@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 import { tables } from './gcal-test/fake-sb.mjs';
 const out = new URL('./.ai-fn.mjs', import.meta.url).pathname;
 await build({ entryPoints: [new URL('../supabase/functions/ai-assistant/index.ts', import.meta.url).pathname], bundle: true, format: 'esm', outfile: out, alias: { 'npm:@supabase/supabase-js@2': new URL('./gcal-test/fake-sb.mjs', import.meta.url).pathname }, logLevel: 'error' });
-const envs = { SUPABASE_URL: 'https://x.supabase.co', GEMINI_API_KEY: 'SECRET-KEY-123', AI_DAILY_LIMIT: '3', AI_TEST: '1' };
+const envs = { SUPABASE_URL: 'https://x.supabase.co', TA_GEMINI_API_KEY: 'SECRET-KEY-123', TA_AI_DAILY_LIMIT: '3', AI_TEST: '1' };
 globalThis.Deno = { env: { get: (k) => envs[k] } };
 let gem = []; let mode = 'ok';
 globalThis.fetch = async (url, init) => {
@@ -52,7 +52,7 @@ const before = gem.length; r = await post({ action: 'generate', request_id: uid(
 ok(r.error === 'daily_limit' && r.blockedUntil && gem.length === before, 'מעבר למגבלה: חסום ולא נשלח ל-Gemini');
 
 // איפוס
-envs.AI_DAILY_LIMIT = '100'; tables.ai_usage = [];
+envs.TA_AI_DAILY_LIMIT = '100'; tables.ai_usage = [];
 mode = 'rpm'; r = await post({ action: 'generate', request_id: uid(), contents: msg('d') });
 ok(r.error === 'rate_limited' && r.retryAfterSec > 20 && !tables.ai_usage[0].blocked_until, '429 לדקה: הודעת המתנה, בלי חסימה יומית');
 mode = 'quota'; r = await post({ action: 'generate', request_id: uid(), contents: msg('e') });
@@ -73,5 +73,5 @@ r = await post({ action: 'generate', request_id: uid(), contents: msg('פתור'
 ok(r.ok && r.finishReason === 'MAX_TOKENS' && gem.at(-1).body.generationConfig.maxOutputTokens === 6144, 'finishReason=MAX_TOKENS מועבר ללקוח, ומגבלת הפלט המבוקשת מועברת');
 r = await post({ action: 'generate', request_id: uid(), contents: msg('פתור'), maxOutputTokens: 99999 });
 ok(gem.at(-1).body.generationConfig.maxOutputTokens === 8192, 'מגבלת פלט נחתכת ל-8192 בשרת'); mode = 'ok';
-envs.GEMINI_API_KEY = ''; r = await post({ action: 'generate', request_id: uid(), contents: msg('x') }); ok(r.error === 'not_configured', 'ללא מפתח: הודעת הגדרה');
+envs.TA_GEMINI_API_KEY = ''; r = await post({ action: 'generate', request_id: uid(), contents: msg('x') }); ok(r.error === 'not_configured', 'ללא מפתח: הודעת הגדרה');
 console.log(fails ? `\n${fails} FAILED` : '\nכל הבדיקות עברו'); process.exit(fails ? 1 : 0);
