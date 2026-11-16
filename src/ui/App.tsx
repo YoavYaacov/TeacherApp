@@ -36,7 +36,7 @@ export function App({ userEmail, signOut }: { userEmail: string | null; signOut:
   const store = useStore();
   const { db, ready, error, saving, kind } = store;
   const PAGES: Page[] = ['home', 'groups', 'calendar', 'private', 'settings', 'assistant'];
-  const [page, setPage] = useState<Page>(BOOT_GOOGLE ? 'settings' : PAGES.includes(boot.page as Page) ? (boot.page as Page) : 'home');
+  const [page, setPage] = useState<Page>(BOOT_GOOGLE ? 'settings' : PAGES.includes(boot.page as Page) && boot.page !== 'settings' ? (boot.page as Page) : 'home');
   const [groupId, setGroupId] = useState<string | null>(BOOT_GOOGLE ? null : boot.groupId ?? null);
   useEffect(() => { saveView({ page, groupId }); }, [page, groupId]);
   // קבוצה ששוחזרה ואינה קיימת עוד: חוזרים לרשימת הקבוצות
