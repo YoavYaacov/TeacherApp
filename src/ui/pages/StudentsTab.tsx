@@ -1,5 +1,5 @@
 import { SortTh, sortRows, useSort } from '../sort';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Download, FileUp, Plus, Search, UserMinus, UserPlus, ClipboardPaste, Undo2, ArrowLeftRight } from 'lucide-react';
 import { useStore, type Store } from '../../data/store';
 import { Modal } from '../Modal';
@@ -8,19 +8,31 @@ import { activeStudents, label } from '../../lib/domain';
 import { studentGrades, termConfig, storedFinal } from '../../lib/gradebook';
 import { computeAnnual, computeTerm } from '../../engine/grades';
 import type { Student, StudyGroup } from '../../data/types';
+import { eraseIdentity, fetchStudentsWithId, isValidIlId, maskDigits, reasonText, saveIdentities, splitIdFromLine, xlsxToText } from '../../lib/identity';
+
+/** האם מצב ענן (שם בלבד נשמרת ת"ז, בשרת, מוצפנת) */
+const useCloud = () => useStore().kind === 'supabase';
+/** מזהי תלמידים שיש להם ת"ז (בלי הערכים); נטען מהשרת */
+function useHasId(): [Set<string>, () => void] {
+  const cloud = useCloud();
+  const [ids, setIds] = useState<Set<string>>(new Set());
+  const [n, setN] = useState(0);
+  useEffect(() => { if (cloud) void fetchStudentsWithId().then(setIds); }, [cloud, n]);
+  return [ids, () => setN((x) => x + 1)];
+}
 
 const same = (s: Student, last: string, first: string, cls: string | null) =>
   s.last_name === last && s.first_name === first && (s.home_class ?? null) === cls;
 
 /** מוסיף תלמיד לקבוצה (find-or-create) — מחזיר מצב. */
-async function addToGroup(store: Store, groupId: string, last: string, first: string, cls: string | null): Promise<'created' | 'existing' | 'duplicate'> {
+async function addToGroup(store: Store, groupId: string, last: string, first: string, cls: string | null): Promise<{ r: 'created' | 'existing' | 'duplicate'; id?: string }> {
   const { db } = store;
   let st = db.students.find((s) => same(s, last, first, cls));
   const result: 'created' | 'existing' = st ? 'existing' : 'created';
-  if (st && db.enrollments.some((e) => e.student_id === st!.id && e.group_id === groupId && !e.left_at)) return 'duplicate';
+  if (st && db.enrollments.some((e) => e.student_id === st!.id && e.group_id === groupId && !e.left_at)) return { r: 'duplicate', id: st.id };
   if (!st) [st] = await store.save('students', [{ last_name: last, first_name: first, home_class: cls, archived_at: null }]);
   await store.save('enrollments', [{ student_id: st.id, group_id: groupId, joined_at: today(), left_at: null }]);
-  return result;
+  return { r: result, id: st.id };
 }
 
 export function StudentsTab({ group }: { group: StudyGroup }) {
@@ -31,6 +43,7 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
   const sort = useSort<'name' | 'class' | 'date'>('name', { date: 'desc' });
   const [archive, setArchive] = useState(false);
   const [modal, setModal] = useState<null | 'add' | 'paste' | { card: Student } | { move: Student }>(null);
+  const [hasId, refreshIds] = useHasId();
 
   const rows = useMemo(() => {
     const enr = db.enrollments.filter((e) => e.group_id === group.id);
@@ -77,7 +90,7 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
           <table className="dt students"><thead><tr><SortTh k="name" sort={sort}>שם</SortTh><SortTh k="class" sort={sort}>כיתת אם</SortTh><SortTh k="date" sort={sort}>{archive ? 'נגרע בתאריך' : 'הצטרף'}</SortTh><th /></tr></thead>
             <tbody>{sorted.map(({ e, s }) => (
               <tr key={e.id}>
-                <td><button className="linklike plain" onClick={() => setModal({ card: s })}>{label(s)}</button></td>
+                <td><button className="linklike plain" onClick={() => setModal({ card: s })}>{label(s)}</button>{hasId.has(s.id) && <span className="badge" title="ת״ז שמורה" style={{ marginInlineStart: 6 }}>ת״ז</span>}</td>
                 <td>{s.home_class ? <span className="badge">{s.home_class}</span> : '—'}</td>
                 <td className="muted">{new Date((archive ? e.left_at : e.joined_at)!).toLocaleDateString('he-IL')}</td>
                 <td className="actions">
@@ -88,28 +101,39 @@ export function StudentsTab({ group }: { group: StudyGroup }) {
                     : <button className="icon-btn" aria-label="גרע" title="גרע מהקבוצה" onClick={() => remove(s.id)}><UserMinus size={16} /></button>}
                 </td></tr>))}</tbody></table>}
       </div>
-      {modal === 'add' && <AddStudent group={group} onClose={() => setModal(null)} />}
-      {modal === 'paste' && <PasteImport group={group} onClose={() => setModal(null)} />}
-      {modal && typeof modal === 'object' && 'card' in modal && <StudentCard student={modal.card} onClose={() => setModal(null)} />}
+      {modal === 'add' && <AddStudent group={group} onClose={() => { setModal(null); refreshIds(); }} onSaved={refreshIds} />}
+      {modal === 'paste' && <PasteImport group={group} onClose={() => { setModal(null); refreshIds(); }} />}
+      {modal && typeof modal === 'object' && 'card' in modal && <StudentCard student={modal.card} hasId={hasId.has(modal.card.id)} onClose={() => { setModal(null); refreshIds(); }} />}
       {modal && typeof modal === 'object' && 'move' in modal && <MoveStudent student={modal.move} from={group} onClose={() => setModal(null)} />}
     </>
   );
 }
 
-function AddStudent({ group, onClose }: { group: StudyGroup; onClose: () => void }) {
+function AddStudent({ group, onClose, onSaved }: { group: StudyGroup; onClose: () => void; onSaved?: () => void }) {
   const store = useStore();
-  const [last, setLast] = useState(''); const [first, setFirst] = useState(''); const [cls, setCls] = useState('');
+  const cloud = useCloud();
+  const [last, setLast] = useState(''); const [first, setFirst] = useState(''); const [cls, setCls] = useState(''); const [tz, setTz] = useState('');
   const [msg, setMsg] = useState('');
   const go = async (again: boolean) => {
-    const r = await addToGroup(store, group.id, last.trim(), first.trim(), normalizeClass(cls));
+    if (tz.trim() && !isValidIlId(tz)) { setMsg('ת״ז לא תקינה.'); return; }
+    const { r, id } = await addToGroup(store, group.id, last.trim(), first.trim(), normalizeClass(cls));
     if (r === 'duplicate') { setMsg('התלמיד כבר פעיל בקבוצה הזו.'); return; }
-    if (again) { setMsg(r === 'existing' ? 'תלמיד קיים צורף לקבוצה.' : 'נוסף.'); setLast(''); setFirst(''); } else onClose();
+    let note = r === 'existing' ? 'תלמיד קיים צורף לקבוצה.' : 'נוסף.';
+    if (tz.trim() && id) {
+      try {
+        const res = await saveIdentities([{ student_id: id, id: tz }]);
+        if (res.errors.length) { setMsg(`${note} ת״ז לא נשמרה: ${reasonText[res.errors[0].reason]}.`); return; }
+        setTz(''); onSaved?.();
+      } catch (e) { setMsg(`${note} ${(e as Error).message}`); return; }
+    }
+    if (again) { setMsg(note); setLast(''); setFirst(''); setTz(''); } else onClose();
   };
   return (
     <Modal title="הוספת תלמיד" onClose={onClose}><div className="form">
       <label className="field fl"><span>שם משפחה</span><input className="input" autoFocus value={last} onChange={(e) => setLast(e.target.value)} /></label>
       <label className="field fl"><span>שם פרטי</span><input className="input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
       <label className="field fl"><span>כיתת אם</span><input className="input" value={cls} onChange={(e) => setCls(e.target.value)} placeholder="ז׳1" /></label>
+      {cloud && <label className="field fl"><span>ת״ז (אופציונלי)</span><input className="input" type="password" inputMode="numeric" autoComplete="off" name="student-tz" maxLength={9} value={tz} onChange={(e) => setTz(e.target.value)} /></label>}
       <p className="muted">תלמיד בעל אותו שם וכיתה שכבר קיים במערכת (בקבוצה אחרת) יצורף ולא ייווצר שוב.</p>
       {msg && <p role="status">{msg}</p>}
       <div className="row"><button className="btn primary" disabled={!last.trim() || !first.trim()} onClick={() => go(false)}>הוסף</button>
@@ -120,18 +144,23 @@ function AddStudent({ group, onClose }: { group: StudyGroup; onClose: () => void
 
 function PasteImport({ group, onClose }: { group: StudyGroup; onClose: () => void }) {
   const store = useStore();
+  const cloud = useCloud();
   const [text, setText] = useState('');
+  const [note, setNote] = useState('');
   const parsed = useMemo(() => {
     const lines = text.split(/\r?\n/);
     const mashov = lines.some((l) => parseMashovLine(l)); // ייצוא ממשו"ב: שורות כותרת ושורות שאינן תלמידים מדולגות בשקט
     const body = mashov ? lines.filter((l) => parseMashovLine(l)) : lines.length && /משפחה|שם|כיתה/.test(lines[0]) && !/\d/.test(lines[0]) ? lines.slice(1) : lines;
-    return body.map((l) => ({ l, p: parseStudentLine(l) })).filter((x) => x.l.trim()).map(({ l, p }) => {
-      if (!p) return { l, p, status: 'invalid' as const };
+    return body.filter((l) => l.trim()).map((raw) => {
+      const sp = cloud ? splitIdFromLine(raw) : { line: raw, id: null };
+      return { l: maskDigits(sp.line), p: parseStudentLine(sp.line), tz: sp.id };
+    }).map(({ l, p, tz }) => {
+      if (!p) return { l, p, tz, status: 'invalid' as const };
       const st = store.db.students.find((s) => same(s, p.last, p.first, p.cls));
-      if (st && store.db.enrollments.some((e) => e.student_id === st.id && e.group_id === group.id && !e.left_at)) return { l, p, status: 'dup' as const };
-      return { l, p, status: st ? ('existing' as const) : ('new' as const) };
+      if (st && store.db.enrollments.some((e) => e.student_id === st.id && e.group_id === group.id && !e.left_at)) return { l, p, tz, status: 'dup' as const };
+      return { l, p, tz, status: st ? ('existing' as const) : ('new' as const) };
     });
-  }, [text, store.db, group.id]);
+  }, [text, store.db, group.id, cloud]);
   // כפילויות בתוך הרשימה עצמה
   const seen = new Set<string>();
   const rows = parsed.map((r) => { if (!r.p) return r; const k = `${r.p.last}|${r.p.first}|${r.p.cls}`; if (seen.has(k)) return { ...r, status: 'dup' as const }; seen.add(k); return r; });
@@ -141,19 +170,32 @@ function PasteImport({ group, onClose }: { group: StudyGroup; onClose: () => voi
     setBusy(true);
     const newOnes = ok.filter((r) => r.status === 'new');
     const saved = newOnes.length ? await store.save('students', newOnes.map((r) => ({ last_name: r.p!.last, first_name: r.p!.first, home_class: r.p!.cls, archived_at: null, ...(r.p!.gender ? { gender: r.p!.gender } : {}) }))) : [];
-    const ids = [...saved.map((s) => s.id), ...ok.filter((r) => r.status === 'existing').map((r) => store.db.students.find((s) => same(s, r.p!.last, r.p!.first, r.p!.cls))!.id)];
+    const idOf = (r: (typeof ok)[number]) => r.status === 'new' ? saved[newOnes.indexOf(r)].id : store.db.students.find((s) => same(s, r.p!.last, r.p!.first, r.p!.cls))!.id;
+    const ids = ok.map(idOf);
     await store.save('enrollments', ids.map((sid) => ({ student_id: sid, group_id: group.id, joined_at: today(), left_at: null })));
+    const withTz = cloud ? ok.filter((r) => r.tz).map((r) => ({ student_id: idOf(r), id: r.tz! })) : [];
+    if (withTz.length) {
+      try {
+        const res = await saveIdentities(withTz);
+        if (res.errors.length) { setNote(`נוספו ${ok.length} תלמידים. ${withTz.length - res.errors.length} ת״ז נשמרו; ${res.errors.length} לא נשמרו (לא תקינה או כבר קיימת). אפשר להשלים בכרטיס התלמיד.`); setBusy(false); return; }
+      } catch (e) { setNote(`נוספו ${ok.length} תלמידים. ${(e as Error).message}`); setBusy(false); return; }
+    }
     onClose();
   };
-  const onFile = async (f: File | undefined) => { if (f) setText(await f.text()); };
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    try { setText(f.name.toLowerCase().endsWith('.xlsx') ? xlsxToText(new Uint8Array(await f.arrayBuffer())) : await f.text()); setNote(''); }
+    catch { setNote('לא ניתן לקרוא את הקובץ.'); }
+  };
   const statusTxt = { new: 'חדש', existing: 'קיים במערכת, יצורף', dup: 'כפילות, ידולג', invalid: 'שורה לא תקינה' } as const;
   return (
     <Modal title="הדבקת רשימה / ייבוא" onClose={onClose} wide><div className="form">
       <p className="muted">הדבק שמות מ-Excel. פורמט פשוט: בכל שורה שם משפחה, שם פרטי ואופציונלית כיתת אם. אפשר גם להדביק ישירות את הרשימה מייצוא משו״ב (מס׳, ת.ז, שם התלמיד, מין, שכבה, מקבילה): המערכת תזהה לבד שם משפחה, שם פרטי (כולל שם נוסף), מין וכיתה, ולא תשמור ת.ז, תאריך לידה או כתובת.</p>
       <textarea className="input" rows={6} autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={'כהן\tדני\tז׳1\nלוי\tמיכל\tז׳2'} dir="rtl" />
-      <label className="btn" style={{ width: 'fit-content' }}><FileUp size={16} aria-hidden />טען קובץ CSV<input type="file" accept=".csv,.txt,.tsv" hidden onChange={(e) => void onFile(e.target.files?.[0])} /></label>
-      {rows.length > 0 && <div className="gridwrap" style={{ maxHeight: 240 }}><table className="gb"><thead><tr><th>משפחה</th><th>פרטי</th><th>כיתה</th><th>מין</th><th>מצב</th></tr></thead>
-        <tbody>{rows.map((r, i) => <tr key={i}><td>{r.p?.last ?? r.l}</td><td>{r.p?.first}</td><td>{r.p?.cls}</td><td>{r.p?.gender === 'm' ? 'ז' : r.p?.gender === 'f' ? 'נ' : ''}</td><td className={r.status === 'invalid' ? 'bad' : ''}>{statusTxt[r.status]}</td></tr>)}</tbody></table></div>}
+      <label className="btn" style={{ width: 'fit-content' }}><FileUp size={16} aria-hidden />טען קובץ<input type="file" accept=".xlsx,.csv,.txt,.tsv" hidden onChange={(e) => void onFile(e.target.files?.[0])} /></label>
+      {rows.length > 0 && <div className="gridwrap" style={{ maxHeight: 240 }}><table className="gb"><thead><tr><th>משפחה</th><th>פרטי</th><th>כיתה</th><th>מין</th>{cloud && <th>ת״ז</th>}<th>מצב</th></tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={i}><td>{r.p?.last ?? r.l}</td><td>{r.p?.first}</td><td>{r.p?.cls}</td><td>{r.p?.gender === 'm' ? 'ז' : r.p?.gender === 'f' ? 'נ' : ''}</td>{cloud && <td className={r.tz && !isValidIlId(r.tz) ? 'bad' : ''}>{r.tz ? (isValidIlId(r.tz) ? '✓' : 'לא תקינה') : ''}</td>}<td className={r.status === 'invalid' ? 'bad' : ''}>{statusTxt[r.status]}</td></tr>)}</tbody></table></div>}
+      {note && <p role="status">{note}</p>}
       <button className="btn primary" disabled={ok.length === 0 || busy} onClick={doImport}>ייבא {ok.length} תלמידים</button>
     </div></Modal>
   );
@@ -178,8 +220,10 @@ function MoveStudent({ student, from, onClose }: { student: Student; from: Study
   </div></Modal>;
 }
 
-export function StudentCard({ student, onClose }: { student: Student; onClose: () => void }) {
+export function StudentCard({ student, onClose, hasId = false }: { student: Student; onClose: () => void; hasId?: boolean }) {
   const store = useStore();
+  const cloud = useCloud();
+  const [tz, setTz] = useState(''); const [tzMsg, setTzMsg] = useState('');
   const { db } = store;
   const [last, setLast] = useState(student.last_name); const [first, setFirst] = useState(student.first_name); const [cls, setCls] = useState(student.home_class ?? ''); const [gender, setGender] = useState<'m' | 'f' | ''>(student.gender ?? '');
   const groupIds = [...new Set(db.enrollments.filter((e) => e.student_id === student.id).map((e) => e.group_id))];
@@ -197,6 +241,20 @@ export function StudentCard({ student, onClose }: { student: Student; onClose: (
         <label className="field fl"><span>פרטי</span><input className="input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
         <label className="field fl"><span>כיתת אם</span><input className="input" value={cls} onChange={(e) => setCls(e.target.value)} /></label>
         <label className="field fl"><span>מגדר (לניסוח הערכות)</span><select className="input" value={gender} onChange={(e) => setGender(e.target.value as 'm' | 'f' | '')}><option value="">לא צוין</option><option value="m">זכר</option><option value="f">נקבה</option></select></label></div>
+      {cloud && hasId && <div className="row"><span className="muted">ת״ז שמורה.</span>
+        <button className="btn sm" onClick={async () => {
+          if (!confirm('למחוק את הת״ז של התלמיד? המחיקה מיידית, כולל מהגיבויים הפנימיים, ואינה ניתנת לביטול.')) return;
+          try { await eraseIdentity(student.id); setTzMsg('הת״ז נמחקה.'); onClose(); } catch (e) { setTzMsg((e as Error).message); }
+        }}>מחק ת״ז</button>{tzMsg && <span role="status" className="muted">{tzMsg}</span>}</div>}
+      {cloud && !hasId && <div className="row"><label className="field fl"><span>ת״ז (אופציונלי)</span><input className="input" type="password" inputMode="numeric" autoComplete="off" name="student-tz" maxLength={9} value={tz} onChange={(e) => setTz(e.target.value)} /></label>
+        <button className="btn" disabled={!tz.trim()} onClick={async () => {
+          if (!isValidIlId(tz)) { setTzMsg('ת״ז לא תקינה.'); return; }
+          try {
+            const res = await saveIdentities([{ student_id: student.id, id: tz }]);
+            setTzMsg(res.errors.length ? reasonText[res.errors[0].reason] + '.' : 'נשמרה.');
+            if (!res.errors.length) setTz('');
+          } catch (e) { setTzMsg((e as Error).message); }
+        }}>שמור ת״ז</button>{tzMsg && <span role="status" className="muted">{tzMsg}</span>}</div>}
       <button className="btn primary" style={{ width: 'fit-content' }} onClick={async () => { await store.patch('students', student.id, { last_name: last.trim(), first_name: first.trim(), home_class: normalizeClass(cls), gender: gender || null }); onClose(); }}>שמור פרטים</button>
       <h2>ציונים</h2>
       {groupIds.length === 0 ? <p className="muted">אין שיוך לקבוצות</p> :
